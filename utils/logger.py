@@ -5,13 +5,32 @@ from typing import Optional
 from colorlog import ColoredFormatter
 
 
+class EnhancedLogger(logging.Logger):
+    """增强版日志记录器，添加自定义日志方法"""
+    
+    def success(self, message, *args, **kwargs):
+        """成功日志，使用绿色"""
+        self.info(f"[SUCCESS] {message}", *args, **kwargs)
+    
+    def progress(self, message, *args, **kwargs):
+        """进度日志，使用蓝色"""
+        self.info(f"[PROGRESS] {message}", *args, **kwargs)
+    
+    def data(self, message, *args, **kwargs):
+        """数据日志，使用青色"""
+        self.debug(f"[DATA] {message}", *args, **kwargs)
+    
+    def hint(self, message, *args, **kwargs):
+        """提示日志，使用绿色"""
+        self.info(f"[HINT] {message}", *args, **kwargs)
+
+
 class LoggerConfig:
     """日志配置类"""
-    
     # 默认日志级别
     DEFAULT_LOG_LEVEL = logging.DEBUG
     
-    # 控制台日志格式 - 更美观的彩色输出格式
+    # 控制台日志格式
     CONSOLE_FORMAT = "%(log_color)s%(asctime)s%(reset)s [%(log_color)s%(levelname)-8s%(reset)s] [%(log_color)s%(name)-15s%(reset)s] %(message_log_color)s%(message)s%(reset)s"
     
     # 文件日志格式
@@ -20,7 +39,7 @@ class LoggerConfig:
     # 日期格式
     DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
     
-    # 增强的日志颜色配置
+    # 日志级别颜色映射
     LOG_COLORS = {
         "DEBUG": "cyan",
         "INFO": "green",
@@ -29,7 +48,7 @@ class LoggerConfig:
         "CRITICAL": "bold_red",
     }
     
-    # 增强的消息颜色配置 - 为不同类型的消息设置不同颜色
+    # 消息颜色映射
     MESSAGE_COLORS = {
         "DEBUG": "purple",
         "INFO": "blue",
@@ -38,7 +57,7 @@ class LoggerConfig:
         "CRITICAL": "bold_red",
     }
     
-    # 自定义的消息类型颜色（可用于特定标记的消息）
+    # 特殊消息类型颜色映射
     SPECIAL_MESSAGE_COLORS = {
         "SUCCESS": "bold_green",
         "PROGRESS": "bold_blue",
@@ -47,8 +66,12 @@ class LoggerConfig:
     }
 
 
+# 注册自定义Logger类
+logging.setLoggerClass(EnhancedLogger)
+
+
 def get_logger(name: Optional[str] = None, log_file: Optional[str] = None, 
-               level: int = LoggerConfig.DEFAULT_LOG_LEVEL) -> logging.Logger:
+               level: int = LoggerConfig.DEFAULT_LOG_LEVEL) -> EnhancedLogger:
     """
     获取配置好的logger实例
     
@@ -113,28 +136,7 @@ def get_logger(name: Optional[str] = None, log_file: Optional[str] = None,
             # 如果文件日志失败，只输出警告而不影响程序运行
             logger.warning(f"无法创建日志文件处理器: {str(e)}")
     
-    # 添加自定义日志方法，支持更多样化的彩色输出
-    def success(message, *args, **kwargs):
-        """成功日志，使用绿色"""
-        logger.info(f"[SUCCESS] {message}", *args, **kwargs)
-    
-    def progress(message, *args, **kwargs):
-        """进度日志，使用蓝色"""
-        logger.info(f"[PROGRESS] {message}", *args, **kwargs)
-    
-    def data(message, *args, **kwargs):
-        """数据日志，使用青色"""
-        logger.debug(f"[DATA] {message}", *args, **kwargs)
-    
-    def hint(message, *args, **kwargs):
-        """提示日志，使用绿色"""
-        logger.info(f"[HINT] {message}", *args, **kwargs)
-    
-    # 将自定义方法添加到logger实例
-    logger.success = success
-    logger.progress = logger.progress if hasattr(logger, 'progress') else progress
-    logger.data = logger.data if hasattr(logger, 'data') else data
-    logger.hint = logger.hint if hasattr(logger, 'hint') else hint
+    # 由于我们使用了EnhancedLogger类，自定义方法已经在类中定义，不需要动态添加
     
     return logger
 
