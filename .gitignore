@@ -1,0 +1,75 @@
+# Python项目标准忽略文件
+
+# 虚拟环境
+venv/
+env/
+ENV/
+*.env
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE和编辑器文件
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+logs/*
+
+# 测试报告
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# 打包文件
+build/
+dist/
+*.egg/
+*.egg-info/
+
+# 环境变量文件
+.env
+.env.*
+!.env.example
+
+# 数据库文件
+*.db
+*.sqlite3
+
+# Cookie文件
+cookie.json
+cookies/
+
+# 任务数据输出文件
+tasks.json
+*.tasks.json
+output/
+
+# 临时文件
+*.tmp
+*.temp
+.tmp/
+.temp/
