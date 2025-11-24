@@ -132,37 +132,34 @@ class YuKeTangApp:
         except Exception as e:
             self.logger.error(f"获取课程列表时发生错误: {str(e)}")
             return False
-    
+
     def print_course_list(self) -> None:
-        """
-        打印课程列表
-        """
         if not self.course_list:
             self.logger.warning("课程列表为空")
             return
-        
-        self.logger.debug(f"课程列表类型: {type(self.course_list).__name__}")
+
         self.logger.success("=== 课程列表 ===")
-        
-        for i, course in enumerate(self.course_list):
-            self.logger.debug(f"课程项 {i+1} 类型: {type(course).__name__}")
-            
-            # 安全地获取课程信息，处理不同的数据类型
-            if isinstance(course, dict):
-                # 尝试获取课程名称和教师名称
-                course_name = course.get('course_name', course.get('name', '未知课程'))
-                teacher_name = course.get('teacher_name', course.get('teacher', '未知教师'))
-                self.logger.hint(f"{i + 1}. {course_name} - {teacher_name}")
-            elif isinstance(course, list):
-                # 如果course是列表，尝试访问其元素
-                self.logger.warning(f"课程项 {i+1} 是列表类型而非字典: {course}")
-                # 简单展示列表内容
-                self.logger.data(f"{i + 1}. [列表数据]")
-            else:
-                # 对于其他类型，转换为字符串显示
-                self.logger.warning(f"课程项 {i+1} 不是预期的字典类型: {type(course).__name__}")
-                self.logger.data(f"{i + 1}. {str(course)}")
-    
+
+        for i, course in enumerate(self.course_list, start=1):
+            if not isinstance(course, dict):
+                self.logger.warning(f"{i}. 非字典数据: {type(course).__name__}")
+                continue
+
+            # —— 课程名称来自 course.name ——
+            course_info = course.get("course", {})
+            course_name = course_info.get("name", "未知课程")
+
+            # —— 教师名称来自 teacher.name ——
+            teacher_info = course.get("teacher", {})
+            teacher_name = teacher_info.get("name", "未知教师")
+
+            # —— 班级名称是当前对象的 name 字段 ——
+            class_name = course.get("name", "未知班级")
+
+            self.logger.hint(
+                f"{i}. 课程：{course_name}  |  班级：{class_name}  |  教师：{teacher_name}"
+            )
+
     def select_course(self, course_index: Optional[int] = None) -> bool:
         """
         选择课程
