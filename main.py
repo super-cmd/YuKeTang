@@ -8,6 +8,7 @@ from api.userinfo import UserAPI
 from parser.task_parser import TaskParser
 from utils.logger import get_logger, set_global_log_level
 from utils.helpers import ensure_directory
+from utils.select import parse_course_selection
 from config import config
 
 
@@ -367,8 +368,26 @@ class YuKeTangApp:
             
             # 3. 打印课程列表
             self.print_course_list()
-            
-            # 4. 选择课程
+
+            # 4. 始终让用户手动选择课程（支持多选/范围）
+            try:
+                self.logger.success(f"请输入要选择的课程序号 (支持 1,3-5 格式，1-{len(self.course_list)}):")
+                user_input = input(">>> ").strip()
+
+                selected_indexes = parse_course_selection(user_input, len(self.course_list))
+
+                if not selected_indexes:
+                    self.logger.warning("输入无效，默认选择第一个课程")
+                    selected_indexes = [0]
+
+                # 目前你只支持单选，所以取第一个
+                course_index = selected_indexes[0]
+
+            except Exception as e:
+                self.logger.error(f"获取用户输入时发生错误: {str(e)}")
+                course_index = 0
+
+            # 5. 选择课程
             if not self.select_course(course_index):
                 return 1
             
