@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 from utils.helpers import load_cookie, smart_decompress
 from utils.logger import get_logger
 from utils.headers import random_headers
@@ -18,6 +19,7 @@ class CourseAPI:
         self.timeout = config.API_TIMEOUT
         self.retry_count = config.API_RETRY_COUNT
         self.retry_delay = config.API_RETRY_DELAY
+        self.request_delay = config.API_REQUEST_DELAY
         self.cookie = load_cookie(config.COOKIE_FILE_PATH)
     
     def _make_request(self, url: str, endpoint: str = "") -> dict:
@@ -34,6 +36,11 @@ class CourseAPI:
         full_url = url if url.startswith("http") else f"{self.base_url}{url}"
         
         try:
+            # 请求前添加延迟，避免频繁请求
+            if self.request_delay > 0:
+                self.logger.info(f"请求前延迟 {self.request_delay:.2f} 秒: {endpoint or full_url}")
+                time.sleep(self.request_delay)
+                
             headers = random_headers(self.cookie)
             res = requests.get(full_url, headers=headers)
             res.raise_for_status()
@@ -130,3 +137,4 @@ course_api = CourseAPI()
 fetch_course_list = course_api.fetch_course_list
 fetch_learn_log = course_api.fetch_learn_log
 fetch_leaf_list = course_api.fetch_leaf_list
+fetch_video_watch_progress = course_api.fetch_video_watch_progress

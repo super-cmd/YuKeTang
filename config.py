@@ -32,6 +32,9 @@ class Config:
     # 默认重试间隔（秒）
     API_RETRY_DELAY: float = 1.0
     
+    # 请求前延迟时间（秒）
+    API_REQUEST_DELAY: float = 2.0
+    
     # ===== 文件配置 =====
     # Cookie文件路径
     COOKIE_FILE_PATH: str = "cookie.json"
