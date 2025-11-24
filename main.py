@@ -19,16 +19,17 @@ class YuKeTangApp:
     用于获取用户信息、课程列表、学习日志和任务点解析的核心应用类
     """
     
-    def __init__(self, log_level: int = None, log_file: Optional[str] = None):
+    def __init__(self, log_level=None, log_file=None):
         """
         初始化应用
         
-        Args:
+        参数:
             log_level: 日志级别，如果为None则使用配置文件中的默认值
             log_file: 日志文件路径，如果为None则使用配置文件中的默认值
         """
         # 获取日志级别，如果没有指定则从配置文件获取
         if log_level is None:
+            # 日志级别映射表，将字符串转换为数字
             log_level_map = {
                 "DEBUG": 10,
                 "INFO": 20,
@@ -48,18 +49,18 @@ class YuKeTangApp:
         # 获取带名称的logger
         self.logger = get_logger(__name__, log_file)
         
-        # 初始化API客户端
+        # 初始化API客户端和解析器
         self.logger.success("应用初始化完成")
-        self.user_api = UserAPI()
-        self.course_api = CourseAPI()
-        self.task_parser = TaskParser()
+        self.user_api = UserAPI()  # 用户API客户端
+        self.course_api = CourseAPI()  # 课程API客户端
+        self.task_parser = TaskParser()  # 任务解析器
         
-        # 应用数据
-        self.user_info: Optional[Dict[str, Any]] = None
-        self.course_list: Optional[list] = None
-        self.selected_course: Optional[Dict[str, Any]] = None
-        self.learn_log: Optional[Dict[str, Any]] = None
-        self.tasks: Optional[Dict[str, list]] = None
+        # 初始化应用数据变量
+        self.user_info = None  # 用户信息
+        self.course_list = None  # 课程列表
+        self.selected_course = None  # 选中的课程
+        self.learn_log = None  # 学习日志
+        self.tasks = None  # 解析后的任务列表
         
         # 记录应用启动信息
         self.logger.info(f"{config.APP_NAME} v{config.APP_VERSION} 启动")
