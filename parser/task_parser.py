@@ -37,7 +37,7 @@ class TaskParser:
         """获取课件类型中文名称"""
         return self.LEAF_TYPES.get(leaf_type, f"未知类型({leaf_type})")
 
-    def parse_leaf_structure(self, leaf_res, parent_title="", classroom_id=None, cid=None):
+    def parse_leaf_structure(self, leaf_res, parent_title="", classroom_id=None):
         """解析下拉目录中的课件结构"""
         leaf_tasks = []
 
@@ -68,6 +68,7 @@ class TaskParser:
                         result = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
                         user_id = result["user_id"]
                         sku_id = result["sku_id"]
+                        cid = result["course_id"]
 
                         completed = self.course_api.fetch_video_watch_progress(
                             classroom_id, user_id, cid, leaf_id
@@ -131,7 +132,7 @@ class TaskParser:
 
         return leaf_tasks
 
-    def parse_tasks(self, res, classroom_id=None, cid=None):
+    def parse_tasks(self, res, classroom_id=None):
         """解析课程任务列表"""
         stats = {str(k): [] for k in self.TASK_TYPES.keys()}
         stats["other"] = []
@@ -181,6 +182,7 @@ class TaskParser:
                 result = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
                 user_id = result["user_id"]
                 sku_id = result["sku_id"]
+                cid = result["course_id"]
 
                 completed = self.course_api.fetch_video_watch_progress(
                     classroom_id, user_id, cid, leaf_id

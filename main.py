@@ -176,7 +176,7 @@ class YuKeTangApp:
             self.logger.error("学习日志或课程信息为空")
             return False
         classroom_id = self.selected_course['classroom_id']
-        self.tasks = self.task_parser.parse_tasks(self.learn_log, classroom_id, 2824639)
+        self.tasks = self.task_parser.parse_tasks(self.learn_log, classroom_id)
         self.logger.info("任务解析完成")
         return True
 
