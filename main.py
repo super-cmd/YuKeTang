@@ -74,6 +74,13 @@ class YuKeTangApp:
                 username = user_list[0].get("name", "未知用户")
                 user_id = user_list[0].get("user_id", "未知ID")
                 self.logger.info(f"当前用户: {username} (ID: {user_id})")
+
+                # 更新窗口标题为用户名
+                try:
+                    os.system(f"title YuKeTang - 用户: {username}")
+                except Exception:
+                    pass
+
                 return True
             else:
                 self.logger.error("用户信息格式错误")
