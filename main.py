@@ -1,6 +1,7 @@
 # main.py
 import json
 import sys
+import os
 from typing import Optional
 from api.courses import CourseAPI
 from api.userinfo import UserAPI
@@ -16,21 +17,32 @@ class YuKeTangApp:
     雨课堂应用主类
     """
     def __init__(self, log_level=None, log_file=None):
+        # 先选择 Cookie 文件
+        selected_cookie = choose_cookie()
+        
+        # 如果没有指定日志文件，则使用 cookie 文件名生成
+        if log_file is None:
+            # 获取 cookie 文件名（不含路径和扩展名）
+            cookie_filename = os.path.basename(selected_cookie)
+            cookie_name = os.path.splitext(cookie_filename)[0]
+            # 生成日志文件名：logs/{cookie_name}_app.log
+            log_file = os.path.join(config.DEFAULT_LOG_DIR, f"{cookie_name}_app.log")
+            # 确保日志目录存在
+            ensure_directory(config.DEFAULT_LOG_DIR)
+            print(f"日志文件将保存到: {log_file}")
+        
         # 日志级别映射
         if log_level is None:
             log_level_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
             log_level = log_level_map.get(config.DEFAULT_LOG_LEVEL, 20)
 
-        if log_file is None:
-            log_file = config.DEFAULT_LOG_FILE
-
         # 设置全局日志
         set_global_log_level(log_level)
         self.logger = get_logger(__name__, log_file)
+        self.log_file = log_file  # 存储日志文件路径，供其他组件使用
         self.logger.success("应用初始化完成")
-
-        # 选择 Cookie
-        selected_cookie = choose_cookie()
+        
+        # 加载 cookie 数据
         cookie_data = load_cookie(selected_cookie)
         self.logger.info(f"已选择: {selected_cookie}")
 
@@ -38,8 +50,8 @@ class YuKeTangApp:
         self.user_api = UserAPI(cookie=cookie_data)
         self.course_api = CourseAPI(cookie=cookie_data)
 
-        # 初始化任务解析器，传入 course_api
-        self.task_parser = TaskParser(course_api=self.course_api)
+        # 初始化任务解析器，传入 course_api 和日志文件
+        self.task_parser = TaskParser(course_api=self.course_api, log_file=self.log_file)
 
         # 初始化数据变量
         self.user_info = None

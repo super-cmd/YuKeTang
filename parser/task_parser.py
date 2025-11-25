@@ -4,8 +4,6 @@ from utils.time import to_datetime
 from api.courses import CourseAPI
 from config import config
 
-logger = get_logger(__name__)
-
 
 class TaskParser:
     """任务解析器类，用于解析和处理课程任务数据"""
@@ -25,9 +23,10 @@ class TaskParser:
         3: "图文",
     }
 
-    def __init__(self, course_api: CourseAPI):
-        """初始化 TaskParser，传入 CourseAPI 实例"""
+    def __init__(self, course_api: CourseAPI, log_file=None):
+        """初始化 TaskParser，传入 CourseAPI 实例和可选的日志文件路径"""
         self.course_api = course_api
+        self.logger = get_logger(__name__, log_file)
 
     def get_task_type_name(self, task_type):
         """获取任务类型中文名称"""
@@ -46,11 +45,11 @@ class TaskParser:
 
         for chapter in content_info:
             chapter_name = chapter.get("chapter", "未命名章节")
-            logger.info(f"├─ 一级目录：{chapter_name}")
+            self.logger.info(f"├─ 一级目录：{chapter_name}")
 
             for section in chapter.get("section_list", []):
                 section_name = section.get("name", "未命名小节")
-                logger.info(f"│   ├─ 二级目录：{section_name}")
+                self.logger.info(f"│   ├─ 二级目录：{section_name}")
 
                 for leaf in section.get("leaf_list", []):
                     leaf_title = leaf.get("title", "未命名课件")
@@ -58,7 +57,7 @@ class TaskParser:
                     leaf_id = leaf.get("id")
                     leaf_type_name = self.get_leaf_type_name(leaf_type)
 
-                    logger.info(
+                    self.logger.info(
                         f"│   │   └─ {leaf_type_name}：{leaf_title} "
                         f"(type={leaf_type}, id={leaf_id})"
                     )
@@ -72,17 +71,17 @@ class TaskParser:
                         completed = self.course_api.fetch_video_watch_progress(
                             classroom_id, user_id, cid, leaf_id
                         )
-                        logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
+                        self.logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
 
                         if completed == 1:
-                            logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
+                            self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
                             continue
 
-                        logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
+                        self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
 
                         prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
                         video_length = prog.get("video_length", 4976.5) if prog else 4976.5
-                        logger.info(f"视频 {leaf_id} 时长：{video_length}")
+                        self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
 
                         HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
                         VIDEO_SPEED = config.VIDEO_SPEED
@@ -96,13 +95,13 @@ class TaskParser:
                                 duration=video_length,
                                 current_time=video_frame
                             )
-                            logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
+                            self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
                             time.sleep(HEARTBEAT_INTERVAL)
 
                         final = self.course_api.fetch_video_watch_progress(
                             classroom_id, user_id, cid, leaf_id
                         )
-                        logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
+                        self.logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
 
                     leaf_tasks.append({
                         "parent_title": parent_title,
@@ -125,11 +124,11 @@ class TaskParser:
         stats["leaf_tasks"] = []
 
         if not res or "data" not in res:
-            logger.error("任务数据为空或格式错误")
+            self.logger.error("任务数据为空或格式错误")
             return stats
 
         activities = res["data"].get("activities", [])
-        logger.info(f"检测到 {len(activities)} 个任务点（classroom_id={classroom_id}）")
+        self.logger.info(f"检测到 {len(activities)} 个任务点（classroom_id={classroom_id}）")
 
         for item in activities:
             task_type = item.get("type")
@@ -140,7 +139,7 @@ class TaskParser:
             deadline = content.get("score_d")
             type_name = self.get_task_type_name(task_type)
 
-            logger.info(
+            self.logger.info(
                 f"任务类型：{type_name}\t任务ID:{item_id}\t标题:{title}\t截止时间:{to_datetime(deadline)}"
             )
 
@@ -156,7 +155,7 @@ class TaskParser:
             })
 
             if task_type == 15 and courseware_id:
-                logger.info(f"  → 检测到下拉目录任务，正在获取二级目录... (courseware_id={courseware_id})")
+                self.logger.info(f"  → 检测到下拉目录任务，正在获取二级目录... (courseware_id={courseware_id})")
                 leaf_res = self.course_api.fetch_leaf_list(courseware_id)
                 if leaf_res:
                     leaf_tasks = self.parse_leaf_structure(leaf_res, title, classroom_id, cid)
