@@ -25,7 +25,6 @@ class Config:
 
     # ===== 文件配置 =====
     COOKIE_FILE_PATH: str = "cookie.json"
-    DEFAULT_TASK_OUTPUT_FILE: str = "tasks.json"
     DEFAULT_LOG_DIR: str = "logs"
     DEFAULT_LOG_FILE: str = os.path.join(DEFAULT_LOG_DIR, "app.log")
 
@@ -87,10 +86,6 @@ class Config:
         log_dir = os.path.dirname(cls.DEFAULT_LOG_FILE)
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
-
-        output_dir = os.path.dirname(cls.DEFAULT_TASK_OUTPUT_FILE)
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
 
 
 # 全局配置对象
