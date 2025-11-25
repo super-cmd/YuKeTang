@@ -427,27 +427,10 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description=f"{config.APP_NAME} - 雨课堂数据获取和解析工具")
     
-    # 课程选择参数
-    parser.add_argument('-c', '--course', type=int, 
-                        default=config.DEFAULT_COURSE_INDEX,
-                        help=f"指定要查询的课程索引 (默认: {config.DEFAULT_COURSE_INDEX})")
-    
-    # 输出参数
-    parser.add_argument('-o', '--output', type=str, 
-                        default=config.DEFAULT_TASK_OUTPUT_FILE, 
-                        help=f"任务数据输出文件路径 (默认: {config.DEFAULT_TASK_OUTPUT_FILE})")
-    parser.add_argument('-s', '--save', action="store_true", 
-                        default=config.AUTO_SAVE_TASKS,
-                        help="保存任务数据到文件")
-    
-    # 日志参数
-    parser.add_argument('--log-level', type=str, 
-                        default=config.DEFAULT_LOG_LEVEL, 
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                        help=f"日志级别 (默认: {config.DEFAULT_LOG_LEVEL})")
-    parser.add_argument('--log-file', type=str, 
-                        default=config.DEFAULT_LOG_FILE,
-                        help=f"日志文件路径 (默认: {config.DEFAULT_LOG_FILE})")
+    # 只保留cookie文件参数
+    parser.add_argument('--ck', type=str, 
+                        default=None,
+                        help="指定cookie文件路径 (默认: 使用配置文件中的路径)")
     
     return parser.parse_args()
 
@@ -459,23 +442,14 @@ def main():
     # 解析命令行参数
     args = parse_arguments()
     
-    # 转换日志级别字符串为logging模块的数字常量
-    log_level_map = {
-        "DEBUG": 10,
-        "INFO": 20,
-        "WARNING": 30,
-        "ERROR": 40,
-        "CRITICAL": 50
-    }
-    log_level = log_level_map[args.log_level]
+    # 如果指定了cookie文件路径，则更新配置
+    if args.ck:
+        config.COOKIE_FILE_PATH = args.ck
+        print(f"使用指定的cookie文件: {args.ck}")
     
-    # 创建并运行应用
-    app = YuKeTangApp(log_level=log_level, log_file=args.log_file)
-    exit_code = app.run(
-        course_index=args.course,
-        save_output=args.save,
-        output_file=args.output
-    )
+    # 创建并运行应用（使用配置中的默认日志设置）
+    app = YuKeTangApp()
+    exit_code = app.run()
     
     sys.exit(exit_code)
 
