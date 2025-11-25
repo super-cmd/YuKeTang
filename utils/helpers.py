@@ -138,7 +138,6 @@ def smart_decompress(data: bytes) -> str:
     # 尝试直接解码为UTF-8
     try:
         result = data.decode("utf-8")
-        logger.debug("数据无需解压，直接解码为UTF-8")
         return result
     except UnicodeDecodeError:
         # 最后尝试latin1解码（可解码任何字节序列但可能产生乱码）

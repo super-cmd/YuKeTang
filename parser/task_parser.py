@@ -3,6 +3,7 @@ from utils.logger import get_logger
 from utils.time import to_datetime
 from api.courses import CourseAPI
 from config import config
+from utils.video_cache import VideoCache
 
 
 class TaskParser:
@@ -24,10 +25,11 @@ class TaskParser:
         3: "图文",
     }
 
-    def __init__(self, course_api: CourseAPI, log_file=None):
+    def __init__(self, course_api: CourseAPI, log_file=None, cookie_file=None):
         """初始化 TaskParser，传入 CourseAPI 实例和可选的日志文件路径"""
         self.course_api = course_api
         self.logger = get_logger(__name__, log_file)
+        self.video_cache = VideoCache(cookie_file) if cookie_file else None
 
     def get_task_type_name(self, task_type):
         """获取任务类型中文名称"""
@@ -77,6 +79,9 @@ class TaskParser:
 
                         if completed == 1:
                             self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
+                            # 刷完标记完成
+                            if self.video_cache:
+                                self.video_cache.mark_completed(leaf_id)
                             continue
 
                         self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
@@ -117,6 +122,9 @@ class TaskParser:
                             classroom_id, user_id, cid, leaf_id
                         )
                         self.logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
+                        # 刷完标记完成
+                        if self.video_cache:
+                            self.video_cache.mark_completed(leaf_id)
 
                     leaf_tasks.append({
                         "parent_title": parent_title,
@@ -149,11 +157,8 @@ class TaskParser:
             task_type = item.get("type")
             title = item.get("title", "未命名任务")
             item_id = item.get("id", "无ID")
-            self.logger.debug(item)
             content = item.get("content") or {}  # 防止 content 为 None
-            self.logger.debug(f"content: {content}")
             leaf_id = content.get("leaf_id")
-            self.logger.debug(f"leaf_id: {leaf_id}")
             courseware_id = item.get("courseware_id")
             content = item.get("content", {})
             deadline = content.get("score_d")
@@ -176,6 +181,11 @@ class TaskParser:
 
             # === 主目录层级如果存在视频任务，也需要处理 ===
             if task_type == 17 and leaf_id:
+                # 检查视频是否已缓存
+                if self.video_cache and self.video_cache.is_completed(leaf_id):
+                    self.logger.info(f"视频 {leaf_id} 已缓存完成，跳过")
+                    continue
+
                 self.logger.info(f"检测到主目录视频：{title} (leaf_id={leaf_id})")
 
                 # 获取必须参数
@@ -191,6 +201,9 @@ class TaskParser:
 
                 if completed == 1:
                     self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
+                    # 刷完标记完成
+                    if self.video_cache:
+                        self.video_cache.mark_completed(leaf_id)
                 else:
                     self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
 
@@ -229,6 +242,9 @@ class TaskParser:
                         classroom_id, user_id, cid, leaf_id
                     )
                     self.logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
+                    # 刷完标记完成
+                    if self.video_cache:
+                        self.video_cache.mark_completed(leaf_id)
 
             # ===== 主目录视频处理结束 =====
 

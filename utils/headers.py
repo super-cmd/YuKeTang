@@ -39,7 +39,6 @@ def random_headers(cookie: str, referer: str = "https://www.yuketang.cn/v2/web/i
         包含必要HTTP头的字典
     """
     user_agent = random.choice(USER_AGENTS)
-    logger.debug(f"使用随机User-Agent: {user_agent[:50]}...")
     
     return {
         "xt-agent": "web",

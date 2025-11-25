@@ -51,7 +51,7 @@ class YuKeTangApp:
         self.course_api = CourseAPI(cookie=cookie_data)
 
         # 初始化任务解析器，传入 course_api 和日志文件
-        self.task_parser = TaskParser(course_api=self.course_api, log_file=self.log_file)
+        self.task_parser = TaskParser(course_api=self.course_api, log_file=self.log_file, cookie_file=selected_cookie)
 
         # 初始化数据变量
         self.user_info = None
