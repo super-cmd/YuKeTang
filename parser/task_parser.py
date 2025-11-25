@@ -13,6 +13,7 @@ class TaskParser:
         9: "公告",
         14: "课堂",
         15: "下拉目录",
+        16: "图文",
         17: "视频",
         19: "作业",
         20: "考试"
@@ -147,6 +148,11 @@ class TaskParser:
             task_type = item.get("type")
             title = item.get("title", "未命名任务")
             item_id = item.get("id", "无ID")
+            self.logger.debug(item)
+            content = item.get("content") or {}  # 防止 content 为 None
+            self.logger.debug(f"content: {content}")
+            leaf_id = content.get("leaf_id")
+            self.logger.debug(f"leaf_id: {leaf_id}")
             courseware_id = item.get("courseware_id")
             content = item.get("content", {})
             deadline = content.get("score_d")
@@ -166,6 +172,63 @@ class TaskParser:
                 "deadline": deadline,
                 "raw_data": item
             })
+
+            # === 主目录层级如果存在视频任务，也需要处理 ===
+            if task_type == 17 and leaf_id:
+                self.logger.info(f"检测到主目录视频：{title} (leaf_id={leaf_id})")
+
+                # 获取必须参数
+                result = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
+                user_id = result["user_id"]
+                sku_id = result["sku_id"]
+
+                completed = self.course_api.fetch_video_watch_progress(
+                    classroom_id, user_id, cid, leaf_id
+                )
+                self.logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
+
+                if completed == 1:
+                    self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
+                else:
+                    self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
+
+                    # 获取视频时长
+                    while True:
+                        prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+                        video_length = prog.get("video_length") if prog else None
+
+                        if not video_length:
+                            self.course_api.send_video_heartbeat(
+                                cid, classroom_id, leaf_id, user_id, sku_id,
+                                duration=0,
+                                current_time=0
+                            )
+                        else:
+                            break
+
+                    self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
+
+                    HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
+                    VIDEO_SPEED = config.VIDEO_SPEED
+                    video_frame = 0
+                    step = HEARTBEAT_INTERVAL * VIDEO_SPEED * 0.8
+
+                    while video_frame < video_length:
+                        video_frame = min(video_frame + step, video_length)
+                        self.course_api.send_video_heartbeat(
+                            cid, classroom_id, leaf_id, user_id, sku_id,
+                            duration=video_length,
+                            current_time=video_frame
+                        )
+                        self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
+                        time.sleep(HEARTBEAT_INTERVAL)
+
+                    final = self.course_api.fetch_video_watch_progress(
+                        classroom_id, user_id, cid, leaf_id
+                    )
+                    self.logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
+
+            # ===== 主目录视频处理结束 =====
 
             if task_type == 15 and courseware_id:
                 self.logger.info(f"  → 检测到下拉目录任务，正在获取二级目录... (courseware_id={courseware_id})")

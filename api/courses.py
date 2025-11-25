@@ -115,7 +115,7 @@ class CourseAPI:
         logger.info(f"正在获取班级 {classroom_id} 的学习日志...")
 
         # 构建完整的URL（这里需要使用完整域名）
-        url = f"https://www.yuketang.cn/v2/api/web/logs/learn/{classroom_id}?actype=-1&page=0&offset=20&sort=-1"
+        url = f"https://www.yuketang.cn/v2/api/web/logs/learn/{classroom_id}?actype=-1&page=0&offset=200&sort=-1"
 
         try:
             # 准备请求头并发送请求
