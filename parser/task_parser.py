@@ -1,6 +1,10 @@
+import time
+
 from utils.logger import get_logger
 from utils.time import to_datetime
-from api.courses import fetch_leaf_list
+from api.courses import fetch_leaf_list, course_api
+
+from config import config
 
 # 创建一个统一的日志记录器
 logger = get_logger(__name__)
@@ -37,63 +41,112 @@ class TaskParser:
         return cls.LEAF_TYPES.get(leaf_type, f"未知类型({leaf_type})")
 
     @classmethod
-    def parse_leaf_structure(cls, leaf_res, parent_title=""):
-        """
-        解析下拉目录中的课件内容（当任务类型为15时）
-        
-        参数:
-            leaf_res: 从fetch_leaf_list获取的响应数据
-            parent_title: 父级任务的标题
-            
-        返回:
-            包含所有子任务信息的列表
-        """
-        # 初始化保存子任务的列表
+    def parse_leaf_structure(cls, leaf_res, parent_title="", classroom_id=None, cid=None):
+
         leaf_tasks = []
 
-        # 从响应中提取数据
         data = leaf_res.get("data", {})
         content_info = data.get("content_info", [])
 
-        # 遍历每个章节
-        for section in content_info:
-            section_name = section.get("name", "未命名目录")
-            logger.info(f"├─ 二级目录：{section_name}")
+        for chapter in content_info:
+            chapter_name = chapter.get("chapter", "未命名章节")
+            logger.info(f"├─ 一级目录：{chapter_name}")
 
-            # 获取该章节下的所有课件
-            leaf_list = section.get("leaf_list", [])
+            for section in chapter.get("section_list", []):
+                section_name = section.get("name", "未命名小节")
+                logger.info(f"│   ├─ 二级目录：{section_name}")
 
-            # 遍历每个课件
-            for leaf in leaf_list:
-                leaf_title = leaf.get("title", "未命名课件")
-                leaf_type = leaf.get("leaf_type", -1)
-                leaf_id = leaf.get("id")
+                for leaf in section.get("leaf_list", []):
+                    leaf_title = leaf.get("title", "未命名课件")
+                    leaf_type = leaf.get("leaf_type", -1)
+                    leaf_id = leaf.get("id")
+                    leaf_type_name = cls.get_leaf_type_name(leaf_type)
 
-                # 获取课件类型的中文名称
-                leaf_type_name = cls.get_leaf_type_name(leaf_type)
+                    logger.info(
+                        f"│   │   └─ {leaf_type_name}：{leaf_title} "
+                        f"(type={leaf_type}, id={leaf_id})"
+                    )
 
-                # 记录课件信息到日志
-                logger.info(
-                    f"│   └─ {leaf_type_name}：{leaf_title} "
-                    f"(type={leaf_type}, id={leaf_id})"
-                )
+                    # 视频类型（leaf_type == 0）
+                    if leaf_type == 0:
 
-                # 添加课件信息到结果列表
-                leaf_tasks.append({
-                    "parent_title": parent_title,  # 父级任务标题
-                    "section_name": section_name,  # 章节名称
-                    "title": leaf_title,           # 课件标题
-                    "leaf_id": leaf_id,            # 课件ID
-                    "leaf_type": leaf_type,        # 课件类型
-                    "leaf_type_name": leaf_type_name,  # 课件类型名称
-                    "start_time": leaf.get("start_time"),  # 开始时间
-                    "deadline": leaf.get("score_deadline")  # 截止时间
-                })
+                        # 获取 leaf 的 user_id、sku_id
+                        result = course_api.fetch_leaf_info(classroom_id, leaf_id)
+                        user_id = result["user_id"]
+                        sku_id = result["sku_id"]
+
+                        # 查询完成状态
+                        completed = course_api.fetch_video_watch_progress(
+                            classroom_id, user_id, cid, leaf_id
+                        )
+
+                        logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
+
+                        # 已完成
+                        if completed == 1:
+                            logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
+                            continue
+
+                        logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
+
+                        # 获取视频总时长
+                        prog = course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+
+                        # 若无进度数据（很常见），使用兜底逻辑
+                        if not prog or "video_length" not in prog:
+                            logger.warning(f"视频 {leaf_id} 无 video_length，使用默认时长 4976.5 秒")
+                            video_length = 4976.5
+                        else:
+                            video_length = prog.get("video_length", 0)
+
+                        logger.info(f"视频 {leaf_id} 时长：{video_length}")
+
+                        #   开始刷课，发送心跳包
+                        HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
+                        VIDEO_SPEED = config.VIDEO_SPEED
+
+                        video_frame = 0
+                        step = HEARTBEAT_INTERVAL * VIDEO_SPEED
+
+                        while video_frame < video_length:
+                            video_frame = min(video_frame + step, video_length)
+
+                            course_api.send_video_heartbeat(
+                                cid, classroom_id, leaf_id, user_id, sku_id,
+                                duration=video_length,
+                                current_time=video_frame
+                            )
+
+                            logger.info(
+                                f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）"
+                            )
+
+
+                            time.sleep(HEARTBEAT_INTERVAL)
+
+                        # 再查一次完成状态
+                        final = course_api.fetch_video_watch_progress(
+                            classroom_id, user_id, cid, leaf_id
+                        )
+                        logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
+
+                    # 记录任务
+                    leaf_tasks.append({
+                        "parent_title": parent_title,
+                        "chapter_name": chapter_name,
+                        "section_name": section_name,
+                        "title": leaf_title,
+                        "leaf_id": leaf_id,
+                        "leaf_type": leaf_type,
+                        "leaf_type_name": leaf_type_name,
+                        "start_time": leaf.get("start_time"),
+                        "deadline": leaf.get("score_deadline"),
+                    })
 
         return leaf_tasks
 
     @classmethod
-    def parse_tasks(cls, res, classroom_id=None):
+    def parse_tasks(cls, res, classroom_id=None, cid=None):
         """
         解析课程任务列表和其中的子任务
         
@@ -167,7 +220,7 @@ class TaskParser:
 
                 # 如果获取成功，解析下拉目录中的任务
                 if leaf_res:
-                    leaf_tasks = cls.parse_leaf_structure(leaf_res, title)
+                    leaf_tasks = cls.parse_leaf_structure(leaf_res, title, classroom_id, cid)
                     stats["leaf_tasks"].extend(leaf_tasks)
 
         return stats

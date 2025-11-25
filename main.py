@@ -194,8 +194,8 @@ class YuKeTangApp:
             
             # 安全地获取课程名称信息
             if isinstance(self.selected_course, dict):
-                course_name = self.selected_course.get('course_name', 
-                                                    self.selected_course.get('name', 
+                course_name = self.selected_course.get('course_name',
+                                                    self.selected_course.get('name',
                                                                            '未知课程'))
                 self.logger.data(f"已选择: {course_name}")
             elif isinstance(self.selected_course, list):
@@ -244,11 +244,11 @@ class YuKeTangApp:
                 self.logger.error("学习日志接口返回空响应")
                 return False
 
-            # ⭐ 打印状态码
-            self.logger.data(f"[学习日志] HTTP 状态码: {response.status_code}")
+            # 打印状态码
+            # self.logger.data(f"[学习日志] HTTP 状态码: {response.status_code}")
 
-            # ⭐ 打印响应原始文本内容
-            self.logger.data(f"[学习日志] 响应内容: {response.text}")
+            # 打印响应原始文本内容
+            # self.logger.data(f"[学习日志] 响应内容: {response.text}")
 
             # 若不是 200，一定失败
             if response.status_code != 200:
@@ -262,8 +262,8 @@ class YuKeTangApp:
                 self.logger.exception("学习日志 JSON 解析失败！")
                 return False
 
-            # ⭐ 打印 JSON 内容
-            self.logger.data(f"[学习日志] JSON 数据: {json.dumps(response_data, ensure_ascii=False)}")
+            # 打印 JSON 内容
+            # self.logger.data(f"[学习日志] JSON 数据: {json.dumps(response_data, ensure_ascii=False)}")
 
             # --- 判断是否正常 ---
             if "data" not in response_data:
@@ -291,7 +291,8 @@ class YuKeTangApp:
         
         try:
             classroom_id = self.selected_course['classroom_id']
-            self.tasks = self.task_parser.parse_tasks(self.learn_log, classroom_id)
+            # user_id = self.course_api.fetch_user_id_by_classroom(classroom_id)
+            self.tasks = self.task_parser.parse_tasks(self.learn_log, classroom_id, 2824639)
             
             self.logger.info("任务解析完成")
             return True
@@ -341,17 +342,17 @@ class YuKeTangApp:
         except Exception as e:
             self.logger.exception(f"保存任务数据时发生错误: {str(e)}")
             return False
-    
-    def run(self, course_index: Optional[int] = None, save_output: bool = False, 
+
+    def run(self, course_index: Optional[int] = None, save_output: bool = False,
             output_file: str = "tasks.json") -> int:
         """
         运行应用的完整流程
-        
+
         Args:
             course_index: 课程索引
             save_output: 是否保存输出
             output_file: 输出文件路径
-            
+
         Returns:
             int: 退出代码，0表示成功，非0表示失败
         """
@@ -359,11 +360,11 @@ class YuKeTangApp:
             # 1. 获取用户信息
             if not self.fetch_user_info():
                 return 1
-            
+
             # 2. 获取课程列表
             if not self.fetch_course_list():
                 return 1
-            
+
             # 3. 打印课程列表
             self.print_course_list()
 
@@ -388,26 +389,27 @@ class YuKeTangApp:
             # 5. 选择课程
             if not self.select_course(course_index):
                 return 1
-            
+            # self.course_api.fetch_video_watch_progress(self.selected_course['classroom_id'], user_id, )
+
             # 5. 获取学习日志
             if not self.fetch_learn_log():
                 return 1
-            
+
             # 6. 解析任务点
             if not self.parse_tasks():
                 return 1
-            
+
             # 7. 打印任务统计
             self.print_task_statistics()
-            
+
             # 8. 保存任务数据（如果需要）
             if save_output:
                 if not self.save_tasks_to_file(output_file):
                     self.logger.warning("保存任务数据失败，但程序继续运行")
-            
+
             self.logger.info("程序运行完成")
             return 0
-            
+
         except KeyboardInterrupt:
             self.logger.info("程序已被用户中断")
             return 130  # SIGINT
