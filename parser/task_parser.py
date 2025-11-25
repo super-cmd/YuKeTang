@@ -79,8 +79,21 @@ class TaskParser:
 
                         self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
 
-                        prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
-                        video_length = prog.get("video_length", 4976.5) if prog else 4976.5
+                        while True:
+                            prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+                            video_length = prog.get("video_length") if prog else None
+
+                            if not video_length:
+                                # 首先发一次心跳，为了获取视频时长
+                                self.course_api.send_video_heartbeat(
+                                    cid, classroom_id, leaf_id, user_id, sku_id,
+                                    duration=0,
+                                    current_time=0
+                                )
+                            else:
+                                # 成功获取跳出循环
+                                break
+
                         self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
 
                         HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
