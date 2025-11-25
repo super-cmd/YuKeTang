@@ -86,20 +86,33 @@ class TaskParser:
 
                         self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
 
-                        while True:
+                        max_retry = 5
+                        retry = 0
+                        video_length = None
+
+                        while retry < max_retry:
                             prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
                             video_length = prog.get("video_length") if prog else None
 
-                            if not video_length:
-                                # 首先发一次心跳，为了获取视频时长
-                                self.course_api.send_video_heartbeat(
-                                    cid, classroom_id, leaf_id, user_id, sku_id,
-                                    duration=0,
-                                    current_time=0
-                                )
-                            else:
-                                # 成功获取跳出循环
-                                break
+                            if video_length:
+                                break  # 成功获取
+
+                            # 获取不到时，发一次心跳
+                            self.course_api.send_video_heartbeat(
+                                cid, classroom_id, leaf_id, user_id, sku_id,
+                                duration=0,
+                                current_time=0
+                            )
+
+                            retry += 1
+                            self.logger.warning(f"获取视频 {leaf_id} 时长失败，第 {retry}/{max_retry} 次重试…")
+                            time.sleep(1)
+
+                        if not video_length:
+                            # 超过最大重试次数，设置默认 90 分钟
+                            video_length = 5400
+                            self.logger.error(
+                                f"获取视频 {leaf_id} 时长失败，已达最大重试次数，强制设置为 90 分钟（5400秒）。")
 
                         self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
 
@@ -208,18 +221,32 @@ class TaskParser:
                     self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
 
                     # 获取视频时长
-                    while True:
+                    max_retry = 5
+                    retry = 0
+                    video_length = None
+
+                    while retry < max_retry:
                         prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
                         video_length = prog.get("video_length") if prog else None
 
-                        if not video_length:
-                            self.course_api.send_video_heartbeat(
-                                cid, classroom_id, leaf_id, user_id, sku_id,
-                                duration=0,
-                                current_time=0
-                            )
-                        else:
-                            break
+                        if video_length:
+                            break  # 成功获取
+
+                        # 获取不到时，发一次心跳
+                        self.course_api.send_video_heartbeat(
+                            cid, classroom_id, leaf_id, user_id, sku_id,
+                            duration=0,
+                            current_time=0
+                        )
+
+                        retry += 1
+                        self.logger.warning(f"获取视频 {leaf_id} 时长失败，第 {retry}/{max_retry} 次重试…")
+                        time.sleep(1)
+
+                    if not video_length:
+                        # 超过最大重试次数，设置默认 90 分钟
+                        video_length = 5400
+                        self.logger.error(f"获取视频 {leaf_id} 时长失败，已达最大重试次数，强制设置为 90 分钟（5400秒）。")
 
                     self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
 
