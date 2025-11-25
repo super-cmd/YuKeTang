@@ -106,7 +106,7 @@ class TaskParser:
                         VIDEO_SPEED = config.VIDEO_SPEED
 
                         video_frame = 0
-                        step = HEARTBEAT_INTERVAL * VIDEO_SPEED
+                        step = HEARTBEAT_INTERVAL * VIDEO_SPEED * 0.8
 
                         while video_frame < video_length:
                             video_frame = min(video_frame + step, video_length)
@@ -120,7 +120,6 @@ class TaskParser:
                             logger.info(
                                 f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）"
                             )
-
 
                             time.sleep(HEARTBEAT_INTERVAL)
 
@@ -159,8 +158,8 @@ class TaskParser:
         """
         # 初始化任务统计字典，按类型存储不同的任务
         stats = {
-            "2": [],   # 课件
-            "9": [],   # 公告
+            "2": [],  # 课件
+            "9": [],  # 公告
             "14": [],  # 课堂
             "15": [],  # 下拉目录
             "17": [],  # 视频
@@ -202,13 +201,13 @@ class TaskParser:
             # 根据任务类型存储任务信息
             key = str(task_type) if task_type in cls.TASK_TYPES else "other"
             stats[key].append({
-                "id": item_id,              # 任务ID
-                "type": task_type,          # 任务类型
-                "type_name": type_name,     # 任务类型名称
-                "title": title,             # 任务标题
+                "id": item_id,  # 任务ID
+                "type": task_type,  # 任务类型
+                "type_name": type_name,  # 任务类型名称
+                "title": title,  # 任务标题
                 "courseware_id": courseware_id,  # 课件ID（如果有）
-                "deadline": deadline,       # 截止时间
-                "raw_data": item            # 原始数据
+                "deadline": deadline,  # 截止时间
+                "raw_data": item  # 原始数据
             })
 
             # 处理下拉目录类型的任务（类型为15）
