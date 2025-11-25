@@ -192,14 +192,29 @@ class YuKeTangApp:
         if not self.tasks:
             self.logger.error("任务列表为空")
             return False
+
+        # 默认文件名
         if output_file is None:
             output_file = config.DEFAULT_TASK_OUTPUT_FILE
 
-        ensure_directory(output_file)
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(self.tasks, f, ensure_ascii=False, indent=2)
-        self.logger.info(f"任务数据已保存到: {output_file}")
-        return True
+        # 取目录部分
+        output_dir = os.path.dirname(output_file)
+
+        # 只有在有目录的情况下才创建目录
+        if output_dir:
+            ensure_directory(output_dir)
+
+        # 写入 JSON 文件
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(self.tasks, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"任务数据已保存到: {output_file}")
+            return True
+
+        except Exception as e:
+            self.logger.exception(f"保存任务数据到文件失败: {e}")
+            return False
+
 
     def run(self, course_index: Optional[int] = None, save_output: bool = False,
             output_file: str = "tasks.json") -> int:
