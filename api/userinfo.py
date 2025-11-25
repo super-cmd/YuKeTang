@@ -12,14 +12,14 @@ logger = get_logger(__name__)
 class UserAPI:
     """用户相关API操作类"""
     
-    def __init__(self):
+    def __init__(self, cookie: str):
         """初始化用户API类，设置配置信息"""
         # 使用统一的logger变量
         self.base_url = config.API_BASE_URL  # 基础URL
         self.timeout = config.API_TIMEOUT    # 请求超时时间
         self.retry_count = config.API_RETRY_COUNT  # 重试次数
         self.retry_delay = config.API_RETRY_DELAY  # 重试间隔时间
-        self.cookie = load_cookie(config.COOKIE_FILE_PATH)  # 加载cookie
+        self.cookie = cookie  # 加载cookie
     
     def _make_request(self, url, endpoint=""):
         """
@@ -140,9 +140,3 @@ def fetch_user_id(classroom_id, cid):
         logger.error(f"获取topic_robot_config失败: {str(e)}")
         return None
 
-
-# 创建全局实例，方便其他模块直接导入使用
-user_api = UserAPI()
-
-# 将类方法暴露为模块级别的函数，方便直接调用
-fetch_user_info = user_api.fetch_user_info

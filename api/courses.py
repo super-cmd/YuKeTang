@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class CourseAPI:
     """课程相关API操作类"""
     
-    def __init__(self):
+    def __init__(self, cookie: str):
         """初始化课程API类，设置配置信息"""
         # 使用统一的logger变量
         self.base_url = config.API_BASE_URL  # 基础URL
@@ -22,7 +22,7 @@ class CourseAPI:
         self.retry_count = config.API_RETRY_COUNT  # 重试次数
         self.retry_delay = config.API_RETRY_DELAY  # 重试间隔时间
         self.request_delay = config.API_REQUEST_DELAY  # 请求间隔时间
-        self.cookie = load_cookie(config.COOKIE_FILE_PATH)  # 加载cookie
+        self.cookie = cookie  # 加载cookie
 
     def _make_request(self, url, endpoint="", extra_headers=None):
         """
@@ -411,13 +411,3 @@ class CourseAPI:
         })
 
         return requests.post(url, json=payload, headers=headers)
-
-
-# 创建全局实例，方便其他模块直接导入使用
-course_api = CourseAPI()
-
-# 将类方法暴露为模块级别的函数，方便直接调用
-fetch_course_list = course_api.fetch_course_list
-fetch_learn_log = course_api.fetch_learn_log
-fetch_leaf_list = course_api.fetch_leaf_list
-fetch_video_watch_progress = course_api.fetch_video_watch_progress

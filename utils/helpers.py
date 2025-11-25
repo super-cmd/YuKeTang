@@ -7,6 +7,45 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+def choose_cookie(cookie_dir: str = "cookies") -> str:
+    """
+    列出指定目录下的所有 cookie 文件，让用户选择一个。
+
+    Args:
+        cookie_dir: cookie 文件夹路径（默认根目录下 cookies）
+
+    Returns:
+        选择的 cookie 文件完整路径
+    """
+    import os
+
+    # 确保目录存在
+    if not os.path.exists(cookie_dir):
+        raise FileNotFoundError(f"{cookie_dir} 文件夹不存在，请先创建并放入 cookie 文件")
+
+    # 列出所有 json 文件
+    files = [f for f in os.listdir(cookie_dir) if f.endswith(".json")]
+    if not files:
+        raise FileNotFoundError(f"{cookie_dir} 文件夹下没有找到任何 .json 文件")
+
+    # 打印可选择的 cookie 列表
+    print("找到以下 Cookie 文件：")
+    for i, f in enumerate(files, start=1):
+        print(f"{i}. {f}")
+
+    # 用户选择
+    while True:
+        try:
+            choice = int(input("请选择需要使用的 Cookie (输入数字): ").strip())
+            if 1 <= choice <= len(files):
+                selected_file = os.path.join(cookie_dir, files[choice - 1])
+                print(f"已选择: {selected_file}")
+                return selected_file
+            else:
+                print(f"请输入 1-{len(files)} 的数字")
+        except ValueError:
+            print("输入无效，请输入数字")
+
 
 def load_cookie(file_path: str = None) -> str:
     """
