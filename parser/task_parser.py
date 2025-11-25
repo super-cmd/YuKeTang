@@ -236,7 +236,7 @@ class TaskParser:
                 self.logger.info(f"  → 检测到下拉目录任务，正在获取二级目录... (courseware_id={courseware_id})")
                 leaf_res = self.course_api.fetch_leaf_list(courseware_id)
                 if leaf_res:
-                    leaf_tasks = self.parse_leaf_structure(leaf_res, title, classroom_id, cid)
+                    leaf_tasks = self.parse_leaf_structure(leaf_res, title, classroom_id)
                     stats["leaf_tasks"].extend(leaf_tasks)
 
         return stats

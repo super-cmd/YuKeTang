@@ -188,7 +188,7 @@ class YuKeTangApp:
         for task_type, task_list in self.tasks.items():
             self.logger.info(f"{task_type}: {len(task_list)} 个任务")
 
-    def run(self, course_index: Optional[int] = None) -> int:
+    def run(self, save_output: bool = False) -> int:
         try:
             if not self.fetch_user_info():
                 return 1
@@ -196,22 +196,35 @@ class YuKeTangApp:
                 return 1
             self.print_course_list()
 
-            # 用户选择课程
-            user_input = input(f"请输入要选择的课程序号 (1-{len(self.course_list)}): ").strip()
+            # 用户输入课程序号（支持 1,3,5-7 等格式）
+            user_input = input(f"请输入要选择的课程序号 (1-{len(self.course_list)}，可用逗号或短横表示范围): ").strip()
             selected_indexes = parse_course_selection(user_input, len(self.course_list))
-            course_index = selected_indexes[0] if selected_indexes else 0
-            if not self.select_course(course_index):
-                return 1
+            if not selected_indexes:
+                self.logger.warning("未选择有效课程，默认选择第一门课程")
+                selected_indexes = [0]
 
-            if not self.fetch_learn_log():
-                return 1
-            if not self.parse_tasks():
-                return 1
+            # 循环处理每门选择的课程
+            for course_index in selected_indexes:
+                if not self.select_course(course_index):
+                    self.logger.warning(f"课程索引 {course_index + 1} 无效，跳过")
+                    continue
 
-            self.print_task_statistics()
+                if not self.fetch_learn_log():
+                    self.logger.warning(f"课程 {self.selected_course.get('name', '未知')} 学习日志获取失败，跳过")
+                    continue
 
-            self.logger.info("程序运行完成")
+                if not self.parse_tasks():
+                    self.logger.warning(f"课程 {self.selected_course.get('name', '未知')} 任务解析失败，跳过")
+                    continue
+
+                self.print_task_statistics()
+                # 如果你之前启用了保存任务文件，可以在这里判断是否保存
+                if save_output:
+                    self.logger.info("已关闭自动保存任务文件，跳过保存")
+
+            self.logger.info("所有选中课程处理完成")
             return 0
+
         except KeyboardInterrupt:
             self.logger.info("程序已被用户中断")
             return 130
