@@ -165,10 +165,6 @@ class CourseAPI:
         """
         url = f"https://www.yuketang.cn/mooc-api/v1/lms/learn/leaf_info/{classroom_id}/{video_id}/"
 
-        logger.debug(f"请求 leaf_info: {url}")
-        # if hasattr(self, "cookie"):
-        #     logger.debug(f"当前 cookie: {self.cookie}")
-
         logger.info(f"正在获取 leaf_info: classroom={classroom_id}, video={video_id}")
 
         extra_headers = {
@@ -245,9 +241,8 @@ class CourseAPI:
             f"&snapshot=1"
         )
 
-        logger.debug(f"请求URL: {url}")
 
-        # ⭐ 关键 header，不加会出现 data = {}
+        # 关键 header，不加会出现 data = {}
         extra_headers = {
             "xtbz": "ykt"
         }
@@ -265,19 +260,19 @@ class CourseAPI:
             return None
 
         try:
-            # ① data 完全为空 => 代表 未观看 / 未完成
+            # data 完全为空 => 代表 未观看 / 未完成
             data = response.get("data", {})
             if not data:
                 logger.info(f"视频 {video_id} 的完成状态: 0（未完成 data 空）")
                 return 0
 
-            # ② data 存在，但没有对应 video_id
+            # data 存在，但没有对应 video_id
             video_info = data.get(str(video_id))
             if not video_info:
                 logger.info(f"视频 {video_id} 的完成状态: 0（无 video_id 数据）")
                 return 0
 
-            # ③ 雨课堂视频完成字段
+            # 雨课堂视频完成字段
             completed = video_info.get("completed", 0)
             logger.info(f"视频 {video_id} 的完成状态: {completed}")
 
@@ -325,8 +320,6 @@ class CourseAPI:
             f"&video_id={video_id}"
             f"&snapshot=1"
         )
-
-        logger.debug(f"请求URL: {url}")
 
         extra_headers = {
             "classroom-id": f"{classroom_id}",

@@ -68,7 +68,6 @@ class TaskParser:
         cid = leaf_info.get("course_id")
 
         completed = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
-        self.logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
 
         if completed == 1:
             self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
