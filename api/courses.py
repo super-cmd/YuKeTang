@@ -1,6 +1,8 @@
 import json
 import time
 import requests
+
+from utils import to_datetime
 from utils.helpers import load_cookie, smart_decompress
 from utils.logger import get_logger
 from utils.headers import random_headers
@@ -214,7 +216,7 @@ class CourseAPI:
             }
 
             logger.info(
-                f"获取成功: user_id={result['user_id']}, sku_id={result['sku_id']}, course_id={result['course_id']}"
+                f"获取成功: user_id={result['user_id']}, sku_id={result['sku_id']}, course_id={result['course_id']}, 截至时间={to_datetime(result['class_end_time'])}"
             )
             return result
 

@@ -49,11 +49,23 @@ class TaskParser:
             self.logger.info(f"视频 {leaf_id} 已缓存完成，跳过")
             return
 
-        # 获取视频必要参数
-        result = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
-        user_id = result["user_id"]
-        sku_id = result["sku_id"]
-        cid = result["course_id"]
+        # 获取 leaf 详情（包含 score_deadline）
+        leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
+
+        # 截止时间检测
+        score_deadline = leaf_info.get("class_end_time")
+        if score_deadline:
+            now_ms = int(time.time() * 1000)
+            if now_ms > score_deadline:
+                self.logger.warning(f"视频 {leaf_id} 截止时间已过（{to_datetime(score_deadline)}），跳过刷课。")
+                return
+        else:
+            self.logger.info(f"视频 {leaf_id} 无截止时间，正常执行。")
+
+        # 提取后续必要参数
+        user_id = leaf_info.get("user_id")
+        sku_id = leaf_info.get("sku_id")
+        cid = leaf_info.get("course_id")
 
         completed = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
         self.logger.info(f"视频 {leaf_id} 当前完成状态：{completed}")
@@ -73,6 +85,11 @@ class TaskParser:
         while retry < max_retry:
             prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
             video_length = prog.get("video_length") if prog else None
+            # 视频长度为0，认为视频已失效或截至
+            if video_length == 0:
+                self.logger.info(f"视频 {leaf_id} 时长为 0（已失效或截至），无需刷课。")
+                return
+
             if video_length:
                 break
             # 获取不到时，发一次心跳
