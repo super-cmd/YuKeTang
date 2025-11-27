@@ -7,7 +7,7 @@ from api.courses import CourseAPI
 from api.userinfo import UserAPI
 from parser.task_parser import TaskParser
 from utils.logger import get_logger, set_global_log_level
-from utils.helpers import ensure_directory, load_cookie, choose_cookie
+from utils.helpers import ensure_directory, load_cookie, choose_cookie_with_username
 from utils.select import parse_course_selection
 from config import config
 
@@ -18,7 +18,7 @@ class YuKeTangApp:
     """
     def __init__(self, log_level=None, log_file=None):
         # 先选择 Cookie 文件
-        selected_cookie = choose_cookie()
+        selected_cookie = choose_cookie_with_username()
         
         # 如果没有指定日志文件，则使用 cookie 文件名生成
         if log_file is None:
