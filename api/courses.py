@@ -406,3 +406,59 @@ class CourseAPI:
         })
 
         return requests.post(url, json=payload, headers=headers)
+
+    def user_article_finish_status(self, leaf_id, classroom_id):
+        """
+        图文完成状态
+        """
+
+        url = f"https://www.yuketang.cn/mooc-api/v1/lms/learn/user_article_finish_status/{leaf_id}/"
+
+        extra_headers = {
+            "classroom-id": f"{classroom_id}",
+            "xtbz": "ykt"
+        }
+
+        res = self._make_request(url, "获取图文完成状态", extra_headers=extra_headers)
+
+        if not res or "data" not in res:
+            logger.warning(f"图文 {leaf_id} 完成状态接口无效：{res}")
+            return None
+
+        finish = res["data"].get("finish", 0)
+
+        if finish:
+            logger.info(f"图文 {leaf_id} 已完成")
+            return True
+        else:
+            logger.info(f"图文 {leaf_id} 未完成")
+            return False
+
+    def user_article_finish(self, leaf_id, classroom_id, sid):
+        """
+        图文标记完成
+        """
+
+        url = f"https://www.yuketang.cn/mooc-api/v1/lms/learn/user_article_finish/{leaf_id}/?cid={classroom_id}&sid={sid}"
+
+        extra_headers = {
+            "classroom-id": str(classroom_id),
+            "xtbz": "ykt",
+        }
+
+        res = self._make_request(url, "图文标记完成", extra_headers=extra_headers)
+
+        logger.debug(f"图文标记完成响应: {res}")
+
+        if not res:
+            logger.warning(f"图文 {leaf_id} 标记完成接口无响应")
+            return False
+
+        # 判断 success 字段
+        if res.get("success") is True:
+            logger.info(f"图文 {leaf_id} 标记完成成功")
+            return True
+        else:
+            logger.warning(f"图文 {leaf_id} 标记完成失败: {res}")
+            return False
+

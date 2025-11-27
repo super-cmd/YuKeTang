@@ -3,8 +3,7 @@ from utils.logger import get_logger
 from utils.time import to_datetime
 from api.courses import CourseAPI
 from config import config
-from utils.video_cache import VideoCache
-
+from utils.cache import LeafCache  # 通用缓存
 
 class TaskParser:
     """任务解析器类，用于解析和处理课程任务数据"""
@@ -26,105 +25,95 @@ class TaskParser:
     }
 
     def __init__(self, course_api: CourseAPI, log_file=None, cookie_file=None):
-        """初始化 TaskParser，传入 CourseAPI 实例和可选的日志文件路径"""
         self.course_api = course_api
         self.logger = get_logger(__name__, log_file)
-        self.video_cache = VideoCache(cookie_file) if cookie_file else None
+        self.leaf_cache = LeafCache(cookie_file) if cookie_file else None
 
     def get_task_type_name(self, task_type):
-        """获取任务类型中文名称"""
         return self.TASK_TYPES.get(task_type, f"未知类型({task_type})")
 
     def get_leaf_type_name(self, leaf_type):
-        """获取课件类型中文名称"""
         return self.LEAF_TYPES.get(leaf_type, f"未知类型({leaf_type})")
 
+    def _mark_leaf_completed(self, leaf_id):
+        if self.leaf_cache:
+            self.leaf_cache.mark_completed(leaf_id)
+
     def _process_video(self, leaf_id, classroom_id):
-        """统一处理视频观看逻辑"""
         if not classroom_id:
             return
 
-        # 已缓存完成
-        if self.video_cache and self.video_cache.is_completed(leaf_id):
-            self.logger.info(f"视频 {leaf_id} 已缓存完成，跳过")
+        if self.leaf_cache and self.leaf_cache.is_completed(leaf_id):
+            self.logger.info(f"leaf {leaf_id} 已缓存完成，跳过")
             return
 
-        # 获取 leaf 详情（包含 score_deadline）
         leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
-
-        # 截止时间检测
         score_deadline = leaf_info.get("class_end_time")
         if score_deadline:
             now_ms = int(time.time() * 1000)
             if now_ms > score_deadline:
-                self.logger.warning(f"视频 {leaf_id} 截止时间已过（{to_datetime(score_deadline)}），跳过刷课。")
+                self.logger.warning(f"leaf {leaf_id} 截止时间已过（{to_datetime(score_deadline)}），跳过")
                 return
-        else:
-            self.logger.info(f"视频 {leaf_id} 无截止时间，正常执行。")
 
-        # 提取后续必要参数
         user_id = leaf_info.get("user_id")
         sku_id = leaf_info.get("sku_id")
         cid = leaf_info.get("course_id")
 
         completed = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
-
         if completed == 1:
-            self.logger.info(f"视频 {leaf_id} 已完成，跳过刷课")
-            if self.video_cache:
-                self.video_cache.mark_completed(leaf_id)
+            self.logger.info(f"leaf {leaf_id} 已完成，跳过")
+            self._mark_leaf_completed(leaf_id)
             return
 
-        self.logger.warning(f"视频 {leaf_id} 未完成，准备模拟观看…")
-
-        # 获取视频时长
-        max_retry = 5
-        retry = 0
+        self.logger.warning(f"leaf {leaf_id} 未完成，模拟观看中…")
+        max_retry, retry = 5, 0
         video_length = None
         while retry < max_retry:
             prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
             video_length = prog.get("video_length") if prog else None
-            # 视频长度为0，认为视频已失效或截至
             if video_length == 0:
-                self.logger.info(f"视频 {leaf_id} 时长为 0（已失效或截至），无需刷课。")
+                self.logger.info(f"leaf {leaf_id} 视频失效或截至")
                 return
-
             if video_length:
                 break
-            # 获取不到时，发一次心跳
             self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id, duration=0, current_time=0)
             retry += 1
-            self.logger.warning(f"获取视频 {leaf_id} 时长失败，第 {retry}/{max_retry} 次重试…")
+            self.logger.warning(f"获取视频长度失败，第 {retry}/{max_retry} 次重试…")
             time.sleep(1)
 
         if not video_length:
-            video_length = 5400  # 默认 90 分钟
-            self.logger.error(f"获取视频 {leaf_id} 时长失败，已达最大重试次数，强制设置为 90 分钟（5400秒）")
-
-        self.logger.info(f"视频 {leaf_id} 时长：{video_length}")
+            video_length = 5400
+            self.logger.error(f"leaf {leaf_id} 视频长度获取失败，默认 5400s")
 
         HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
         VIDEO_SPEED = config.VIDEO_SPEED
-        video_frame = 0
-        step = HEARTBEAT_INTERVAL * VIDEO_SPEED * 0.8
-
+        video_frame, step = 0, HEARTBEAT_INTERVAL * VIDEO_SPEED * 0.8
         while video_frame < video_length:
             video_frame = min(video_frame + step, video_length)
-            self.course_api.send_video_heartbeat(
-                cid, classroom_id, leaf_id, user_id, sku_id,
-                duration=video_length,
-                current_time=video_frame
-            )
+            self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id,
+                                                 duration=video_length, current_time=video_frame)
             self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
             time.sleep(HEARTBEAT_INTERVAL)
 
         final = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
-        self.logger.info(f"视频 {leaf_id} 最终完成状态：{final}")
-        if self.video_cache:
-            self.video_cache.mark_completed(leaf_id)
+        self.logger.info(f"leaf {leaf_id} 完成状态：{final}")
+        self._mark_leaf_completed(leaf_id)
 
-    def parse_leaf_structure(self, leaf_res, parent_titles=None, classroom_id=None):
-        """统一解析课程结构，兼容多层 section_list 和一级 leaf_list"""
+    def _process_leaf(self, leaf_id, leaf_type, classroom_id, sku_id=None):
+        """统一处理叶子节点，包括视频和图文"""
+        if leaf_type == 0:
+            self._process_video(leaf_id, classroom_id)
+        elif leaf_type == 3:
+            if self.leaf_cache and self.leaf_cache.is_completed(leaf_id):
+                self.logger.info(f"leaf {leaf_id} 图文已完成，跳过")
+                return
+            status = self.course_api.user_article_finish_status(leaf_id, classroom_id)
+            if not status:
+                self.logger.info(f"leaf {leaf_id} 图文未完成，提交作业")
+                self.course_api.user_article_finish(leaf_id, classroom_id, sku_id)
+            self._mark_leaf_completed(leaf_id)
+
+    def parse_leaf_structure(self, leaf_res, parent_titles=None, classroom_id=None, sku_id=None):
         if parent_titles is None:
             parent_titles = []
 
@@ -133,21 +122,16 @@ class TaskParser:
         content_info = data.get("content_info", [])
 
         def _parse_section(section, titles):
-            """递归解析每个 section"""
             current_titles = titles + [section.get("name") or section.get("chapter") or "未命名章节"]
 
-            # 当前 section 的 leaf_list
             for leaf in section.get("leaf_list", []):
                 leaf_title = leaf.get("title", "未命名课件")
                 leaf_type = leaf.get("leaf_type", -1)
                 leaf_id = leaf.get("id")
                 leaf_type_name = self.get_leaf_type_name(leaf_type)
 
-                self.logger.info(f"{'│   ' * (len(current_titles)-1)}└─ {leaf_type_name}：{leaf_title} (type={leaf_type}, id={leaf_id})")
-
-                # 视频处理
-                if leaf_type == 0:
-                    self._process_video(leaf_id, classroom_id)
+                self.logger.info(f"{'│   ' * (len(current_titles)-1)}└─ {leaf_type_name}：{leaf_title} (id={leaf_id})")
+                self._process_leaf(leaf_id, leaf_type, classroom_id, sku_id)
 
                 leaf_tasks.append({
                     "parent_titles": current_titles,
@@ -159,18 +143,15 @@ class TaskParser:
                     "deadline": leaf.get("score_deadline"),
                 })
 
-            # 递归子 section
             for sub_section in section.get("section_list", []):
                 _parse_section(sub_section, current_titles)
 
-        # 遍历 content_info 一级目录
         for chapter in content_info:
             _parse_section(chapter, parent_titles)
 
         return leaf_tasks
 
     def parse_tasks(self, res, classroom_id=None):
-        """解析课程任务列表"""
         stats = {str(k): [] for k in self.TASK_TYPES.keys()}
         stats["other"] = []
         stats["leaf_tasks"] = []
@@ -188,13 +169,12 @@ class TaskParser:
             item_id = item.get("id", "无ID")
             content = item.get("content") or {}
             leaf_id = content.get("leaf_id")
+            sku_id = content.get("sku_id")
             courseware_id = item.get("courseware_id")
             deadline = content.get("score_d")
             type_name = self.get_task_type_name(task_type)
 
-            self.logger.info(
-                f"任务类型：{type_name}\t任务ID:{item_id}\t标题:{title}\t截止时间:{to_datetime(deadline)}"
-            )
+            self.logger.info(f"任务类型：{type_name}\t任务ID:{item_id}\t标题:{title}\t截止时间:{to_datetime(deadline)}")
 
             key = str(task_type) if task_type in self.TASK_TYPES else "other"
             stats[key].append({
@@ -207,22 +187,22 @@ class TaskParser:
                 "raw_data": item
             })
 
-            # 主目录视频处理
-            if task_type == 17 and leaf_id:
-                self._process_video(leaf_id, classroom_id)
+            if task_type in [16, 17] and leaf_id:
+                # 主目录视频或图文处理
+                self._process_leaf(leaf_id, 0 if task_type == 17 else 3, classroom_id, sku_id)
 
-            # 下拉目录任务处理
             if task_type == 15 and courseware_id:
-                self.logger.info(f"  → 检测到下拉目录任务，正在获取二级目录... (courseware_id={courseware_id})")
+                self.logger.info(f"下拉目录任务，获取二级目录... (courseware_id={courseware_id})")
                 leaf_res = self.course_api.fetch_leaf_list(courseware_id)
                 if leaf_res:
-                    leaf_tasks = self.parse_leaf_structure(leaf_res, parent_titles=[title], classroom_id=classroom_id)
+                    leaf_tasks = self.parse_leaf_structure(leaf_res, parent_titles=[title],
+                                                           classroom_id=classroom_id, sku_id=sku_id)
                     stats["leaf_tasks"].extend(leaf_tasks)
 
         return stats
 
 
-# 模块级别创建 TaskParser 的实例，方便导入
-task_parser = TaskParser(course_api=None)  # 默认 None，main.py 运行时需要传入实例
+# 模块级别创建 TaskParser 实例
+task_parser = TaskParser(course_api=None)  # main.py 运行时传入实际实例
 parse_tasks = task_parser.parse_tasks
 parse_leaf_structure = task_parser.parse_leaf_structure
