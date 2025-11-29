@@ -462,3 +462,50 @@ class CourseAPI:
             logger.warning(f"图文 {leaf_id} 标记完成失败: {res}")
             return False
 
+    def fetch_course_card_info(self, classroom_id: int, cards_id: int):
+        """
+        获取课件封面信息，包括页数 count
+
+        参数:
+            classroom_id: 班级ID
+            cards_id: 课件ID（card id）
+
+        返回:
+            dict: {
+                "count": int,
+                "title": str,
+                "cover": str,
+                "start": int,
+                "end": int or None,
+                "qinghua": bool
+            }
+            如果请求失败返回 None
+        """
+        url = f"/v2/api/web/cards/cover?classroom_id={classroom_id}&cards_id={cards_id}"
+        response = self._make_request(url, f"获取课件封面信息 cards_id={cards_id}")
+
+        if not response:
+            logger.error(f"获取课件 {cards_id} 封面信息失败")
+            return None
+
+        if response.get("errcode") != 0:
+            logger.error(f"获取课件 {cards_id} 封面信息接口返回错误: {response}")
+            return None
+
+        data = response.get("data", {})
+        if not data:
+            logger.warning(f"课件 {cards_id} 封面信息 data 为空")
+            return None
+
+        result = {
+            "count": data.get("count", 0),
+            "title": data.get("title"),
+            "cover": data.get("cover"),
+            "start": data.get("start"),
+            "end": data.get("end"),
+            "qinghua": data.get("qinghua", False)
+        }
+
+        logger.info(f"课件 {cards_id} 封面信息获取成功: count={result['count']}, title={result['title']}")
+        return result
+

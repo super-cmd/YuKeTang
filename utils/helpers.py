@@ -162,3 +162,27 @@ def choose_cookie_with_username(cookie_dir: str = COOKIE_DIR) -> str:
     except ValueError:
         print("输入无效，将重新输入")
         return choose_cookie_with_username(cookie_dir)
+
+
+def inject_cookie_fields(cookie_str: str, **fields) -> str:
+    """
+    通用 Cookie 注入器：支持注入任意键值对，自动覆盖旧字段。
+
+    示例：
+        inject_cookie_fields(cookie, classroomId=123, cardsId=456, userId=789)
+    """
+    # 拆分为 dict
+    cookie_dict = {}
+    for part in cookie_str.split(";"):
+        part = part.strip()
+        if "=" in part:
+            k, v = part.split("=", 1)
+            cookie_dict[k] = v
+
+    # 注入或覆盖字段
+    for k, v in fields.items():
+        cookie_dict[k] = str(v)
+
+    # 拼回字符串
+    return "; ".join(f"{k}={v}" for k, v in cookie_dict.items()) + ";"
+

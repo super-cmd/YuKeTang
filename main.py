@@ -3,6 +3,8 @@ import json
 import sys
 import os
 from typing import Optional
+
+from api.WebSocket import YKTWebSocket
 from api.courses import CourseAPI
 from api.userinfo import UserAPI
 from parser.task_parser import TaskParser
@@ -18,12 +20,12 @@ class YuKeTangApp:
     """
     def __init__(self, log_level=None, log_file=None):
         # 先选择 Cookie 文件
-        selected_cookie = choose_cookie_with_username()
+        self.selected_cookie_path = choose_cookie_with_username()
         
         # 如果没有指定日志文件，则使用 cookie 文件名生成
         if log_file is None:
             # 获取 cookie 文件名（不含路径和扩展名）
-            cookie_filename = os.path.basename(selected_cookie)
+            cookie_filename = os.path.basename(self.selected_cookie_path)
             cookie_name = os.path.splitext(cookie_filename)[0]
             # 生成日志文件名：logs/{cookie_name}_app.log
             log_file = os.path.join(config.DEFAULT_LOG_DIR, f"{cookie_name}_app.log")
@@ -43,15 +45,23 @@ class YuKeTangApp:
         self.logger.success("应用初始化完成")
         
         # 加载 cookie 数据
-        cookie_data = load_cookie(selected_cookie)
-        self.logger.info(f"已选择: {selected_cookie}")
+        cookie_data = load_cookie(self.selected_cookie_path)
+        self.logger.info(f"已选择: {self.selected_cookie_path}")
+
+        self.cookie_str = cookie_data  # cookie 内容，用于 API 和 WS
 
         # 初始化 API 客户端
         self.user_api = UserAPI(cookie=cookie_data)
         self.course_api = CourseAPI(cookie=cookie_data)
 
-        # 初始化任务解析器，传入 course_api 和日志文件
-        self.task_parser = TaskParser(course_api=self.course_api, log_file=self.log_file, cookie_file=selected_cookie)
+        # 初始化任务解析器时传入 cookie_str
+        self.task_parser = TaskParser(
+            course_api=self.course_api,
+            user_api=self.user_api,
+            log_file=self.log_file,
+            cookie_file=self.selected_cookie_path,
+            cookie_str=self.cookie_str
+        )
 
         # 初始化数据变量
         self.user_info = None

@@ -1,4 +1,8 @@
 import time
+
+from api.userinfo import UserAPI
+from api.WebSocket import YKTWebSocket
+from utils.helpers import inject_cookie_fields
 from utils.logger import get_logger
 from utils.time import to_datetime
 from api.courses import CourseAPI
@@ -24,10 +28,12 @@ class TaskParser:
         3: "图文",
     }
 
-    def __init__(self, course_api: CourseAPI, log_file=None, cookie_file=None):
+    def __init__(self, course_api: CourseAPI, user_api: UserAPI,log_file=None, cookie_file=None, cookie_str=None):
         self.course_api = course_api
+        self.user_api = user_api
         self.logger = get_logger(__name__, log_file)
         self.leaf_cache = LeafCache(cookie_file) if cookie_file else None
+        self.cookie_str = cookie_str  # 新增 cookie 字符串，用于 WS
 
     def get_task_type_name(self, task_type):
         return self.TASK_TYPES.get(task_type, f"未知类型({task_type})")
@@ -191,6 +197,42 @@ class TaskParser:
                 # 主目录视频或图文处理
                 self._process_leaf(leaf_id, 0 if task_type == 17 else 3, classroom_id, sku_id)
 
+            if task_type == 2 and courseware_id:
+                # 先检查缓存
+                if self.leaf_cache and self.leaf_cache.is_completed(courseware_id):
+                    self.logger.info(f"课件 {courseware_id} 已缓存完成，跳过")
+                    continue
+
+                self.logger.debug(f"课件任务，获取课件信息 (courseware_id={courseware_id})")
+                card_info = self.course_api.fetch_course_card_info(classroom_id, courseware_id)
+                count = card_info["count"]
+                self.logger.info(f"课件 {courseware_id} 共 {count} 页")
+
+                user_id = self.user_api.fetch_entity_agents(classroom_id)
+                self.logger.info(f"课件 {courseware_id} 获取用户ID：{user_id}")
+                new_cookie = inject_cookie_fields(self.cookie_str, classroomId=classroom_id)
+
+                ws_client = YKTWebSocket(
+                    cookie=new_cookie,
+                    classroom_id=classroom_id,
+                    user_id=user_id,
+                    cards_id=courseware_id,
+                    page_count=count,
+                    log_file=self.logger.file if hasattr(self.logger, "file") else None
+                )
+                ws_client.run()
+
+                # 等待课件观看完成
+                while not ws_client.finished:
+                    time.sleep(0.2)
+
+                self.logger.info(f"课件 {courseware_id} 已完成，WS 已关闭，继续解析下一任务")
+
+                # 标记缓存
+                if self.leaf_cache:
+                    self.leaf_cache.mark_completed(courseware_id)
+                    self.logger.debug(f"课件 {courseware_id} 已缓存完成")
+
             if task_type == 15 and courseware_id:
                 self.logger.info(f"下拉目录任务，获取二级目录... (courseware_id={courseware_id})")
                 leaf_res = self.course_api.fetch_leaf_list(courseware_id)
@@ -203,6 +245,6 @@ class TaskParser:
 
 
 # 模块级别创建 TaskParser 实例
-task_parser = TaskParser(course_api=None)  # main.py 运行时传入实际实例
+task_parser = TaskParser(course_api=None, user_api=None)  # main.py 运行时传入实际实例
 parse_tasks = task_parser.parse_tasks
 parse_leaf_structure = task_parser.parse_leaf_structure
