@@ -78,7 +78,7 @@ class TaskParser:
             prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
             video_length = prog.get("video_length") if prog else None
             if video_length == 0:
-                self.logger.info(f"leaf {leaf_id} 视频失效或截至")
+                self.logger.warning(f"leaf {leaf_id} 视频失效或截")
                 return
             if video_length:
                 break
