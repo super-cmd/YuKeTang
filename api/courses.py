@@ -509,3 +509,60 @@ class CourseAPI:
         logger.info(f"课件 {cards_id} 封面信息获取成功: count={result['count']}, title={result['title']}")
         return result
 
+    def fetch_course_view_depth(self, classroom_id: int, cards_id: int):
+        """
+        获取课件观看深度信息（包括完成时间 finish_time）
+
+        参数:
+            classroom_id: 班级ID
+            cards_id: 课件ID
+
+        返回:
+            dict:
+                {
+                    "finish_time": str 或 None,
+                    "depth_detail": list,
+                    "duration": int,
+                    "depth": int,
+                    "problem_finish_time": str 或 None,
+                    "id": int
+                }
+            请求失败返回 None
+        """
+        url = (
+            f"/v2/api/web/cards/view_depth?"
+            f"classroom_id={classroom_id}&cards_id={cards_id}"
+        )
+
+        response = self._make_request(url, f"获取课件观看深度 cards_id={cards_id}")
+
+        if not response:
+            logger.error(f"获取课件 {cards_id} 观看深度失败（无返回）")
+            return None
+
+        if response.get("errcode") != 0:
+            logger.error(f"获取课件 {cards_id} 观看深度接口错误: {response}")
+            return None
+
+        data = response.get("data", {})
+        if not data:
+            logger.warning(f"课件 {cards_id} 观看深度 data 为空")
+            return None
+
+        result = {
+            "finish_time": data.get("finish_time"),
+            "depth_detail": data.get("depth_detail", []),
+            "duration": data.get("duration"),
+            "depth": data.get("depth"),
+            "problem_finish_time": data.get("problem_finish_time"),
+            "id": data.get("id"),
+        }
+
+        logger.info(
+            f"课件 {cards_id} 观看深度获取成功: finish_time={result['finish_time']}, "
+            f"depth={result['depth']}, duration={result['duration']}"
+        )
+
+        return result
+
+

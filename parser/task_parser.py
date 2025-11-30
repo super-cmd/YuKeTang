@@ -203,6 +203,17 @@ class TaskParser:
                     self.logger.info(f"课件 {courseware_id} 已缓存完成，跳过")
                     continue
 
+                view_info = self.course_api.fetch_course_view_depth(classroom_id, courseware_id)
+                finish_time = view_info["finish_time"]
+                if finish_time:
+                    self.logger.info(f"课件 {courseware_id} 已完成")
+
+                    if self.leaf_cache:
+                        self.leaf_cache.mark_completed(courseware_id)
+                        self.logger.debug(f"课件 {courseware_id} 已缓存完成")
+
+                    continue
+
                 self.logger.debug(f"课件任务，获取课件信息 (courseware_id={courseware_id})")
                 card_info = self.course_api.fetch_course_card_info(classroom_id, courseware_id)
                 count = card_info["count"]
