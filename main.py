@@ -171,12 +171,12 @@ class YuKeTangApp:
 
         self.logger.progress(f"获取学习日志 classroom_id={classroom_id}...")
         response = self.course_api.fetch_learn_log(classroom_id, raw_response=True)
-        if not response or response.status_code != 200:
+        if not response:
             self.logger.error("学习日志接口返回失败")
             return False
 
         try:
-            self.learn_log = response.json()
+            self.learn_log = response
         except Exception:
             self.logger.exception("解析学习日志 JSON 失败")
             return False
