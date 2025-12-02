@@ -26,6 +26,7 @@ class TaskParser:
     LEAF_TYPES = {
         0: "视频",
         3: "图文",
+        6: "作业"
     }
 
     def __init__(self, course_api: CourseAPI, user_api: UserAPI,log_file=None, cookie_file=None, cookie_str=None):
@@ -65,7 +66,8 @@ class TaskParser:
         sku_id = leaf_info.get("sku_id")
         cid = leaf_info.get("course_id")
 
-        completed = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
+        res = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+        completed = res['completed']
         if completed == 1:
             self.logger.info(f"leaf {leaf_id} 已完成，跳过")
             self._mark_leaf_completed(leaf_id)
@@ -101,7 +103,7 @@ class TaskParser:
             self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
             time.sleep(HEARTBEAT_INTERVAL)
 
-        final = self.course_api.fetch_video_watch_progress(classroom_id, user_id, cid, leaf_id)
+        final = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
         self.logger.info(f"leaf {leaf_id} 完成状态：{final}")
         self._mark_leaf_completed(leaf_id)
 
