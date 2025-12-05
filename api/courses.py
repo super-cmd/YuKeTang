@@ -79,6 +79,7 @@ class CourseAPI:
             "leaf_type": data.get("leaf_type"),
             "media": data.get("content_info", {}).get("media", {}),
             "score_info": data.get("content_info", {}).get("score_evaluation", {}),
+            "leaf_type_id": data.get("content_info", {}).get("leaf_type_id", {}),
         }
         logger.info(
             f"获取成功: user_id={result['user_id']}, sku_id={result['sku_id']}, course_id={result['course_id']}, 截止时间={to_datetime(result['class_end_time'])}"

@@ -1,6 +1,7 @@
 import time
 
 from api.userinfo import UserAPI
+from api.homework import HomeworkAPI
 from api.WebSocket import YKTWebSocket
 from utils.helpers import inject_cookie_fields
 from utils.logger import get_logger
@@ -29,7 +30,8 @@ class TaskParser:
         6: "作业"
     }
 
-    def __init__(self, course_api: CourseAPI, user_api: UserAPI,log_file=None, cookie_file=None, cookie_str=None):
+    def __init__(self, course_api: CourseAPI, user_api: UserAPI, homework_api: HomeworkAPI,log_file=None, cookie_file=None, cookie_str=None):
+        self.homework = homework_api
         self.course_api = course_api
         self.user_api = user_api
         self.logger = get_logger(__name__, log_file)
@@ -46,6 +48,46 @@ class TaskParser:
         if self.leaf_cache:
             self.leaf_cache.mark_completed(leaf_id)
 
+    def _process_homework(self, leaf_id, classroom_id, sku_id=None):
+        """
+        处理作业任务
+        """
+        if self.leaf_cache and self.leaf_cache.is_completed(leaf_id):
+            self.logger.info(f"作业 leaf {leaf_id} 已缓存完成，跳过")
+            return
+
+        # 查询作业状态
+        # status = self.course_api.get_homework_status(leaf_id, classroom_id)
+        # if status.get("submitted"):
+        #     self.logger.info(f"作业 leaf {leaf_id} 已提交，跳过")
+        #     self._mark_leaf_completed(leaf_id)
+        #     return
+
+        leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
+        self.logger.debug(f"叶子信息 leaf {leaf_id}：{leaf_info}")
+        leaf_type_id = leaf_info.get("leaf_type_id")
+
+        # 获取作业详情
+        homework_info = self.homework.get_exercise_list(classroom_id, leaf_type_id)
+        questions = homework_info.get("questions", [])
+        self.logger.info(f"作业 leaf {leaf_type_id} 共 {len(questions)} 道题，开始自动提交...")
+
+        # for q in questions:
+        #     # 自动选择答案逻辑，可扩展：这里简单提交默认值或空
+        #     answer = q.get("default_answer") or ""
+        #     self.course_api.submit_homework_answer(
+        #         leaf_id, q["question_id"], answer, classroom_id
+        #     )
+        #     self.logger.info(f"题目 {q['question_id']} 提交答案: {answer}")
+        #
+        # # 提交作业
+        # self.course_api.submit_homework(leaf_id, classroom_id)
+        # self.logger.info(f"作业 leaf {leaf_id} 已提交完成")
+        #
+        # # 标记缓存
+        # self._mark_leaf_completed(leaf_id)
+
+
     def _process_video(self, leaf_id, classroom_id):
         if not classroom_id:
             return
@@ -56,6 +98,8 @@ class TaskParser:
 
         leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
         score_deadline = leaf_info.get("class_end_time")
+        leaf_type_id = leaf_info.get("content_info").get("leaf_type_id")
+
         if score_deadline:
             now_ms = int(time.time() * 1000)
             if now_ms > score_deadline:
@@ -120,6 +164,10 @@ class TaskParser:
                 self.logger.info(f"leaf {leaf_id} 图文未完成，提交作业")
                 self.course_api.user_article_finish(leaf_id, classroom_id, sku_id)
             self._mark_leaf_completed(leaf_id)
+        elif leaf_type == 6:  # 作业
+            self._process_homework(leaf_id, classroom_id, sku_id)
+        else:
+            self.logger.warning(f"未知 leaf_type {leaf_type}，leaf_id={leaf_id}")
 
     def parse_leaf_structure(self, leaf_res, parent_titles=None, classroom_id=None, sku_id=None):
         if parent_titles is None:
@@ -258,6 +306,6 @@ class TaskParser:
 
 
 # 模块级别创建 TaskParser 实例
-task_parser = TaskParser(course_api=None, user_api=None)  # main.py 运行时传入实际实例
+task_parser = TaskParser(course_api=None, user_api=None, homework_api=None)  # main.py 运行时传入实际实例
 parse_tasks = task_parser.parse_tasks
 parse_leaf_structure = task_parser.parse_leaf_structure

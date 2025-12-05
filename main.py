@@ -6,6 +6,7 @@ from typing import Optional
 
 from api.WebSocket import YKTWebSocket
 from api.courses import CourseAPI
+from api.homework import HomeworkAPI
 from api.userinfo import UserAPI
 from parser.task_parser import TaskParser
 from utils.logger import get_logger, set_global_log_level
@@ -53,11 +54,13 @@ class YuKeTangApp:
         # 初始化 API 客户端
         self.user_api = UserAPI(cookie=cookie_data)
         self.course_api = CourseAPI(cookie=cookie_data)
+        self.homework_api = HomeworkAPI(cookie=cookie_data)
 
         # 初始化任务解析器时传入 cookie_str
         self.task_parser = TaskParser(
             course_api=self.course_api,
             user_api=self.user_api,
+            homework_api=self.homework_api,
             log_file=self.log_file,
             cookie_file=self.selected_cookie_path,
             cookie_str=self.cookie_str

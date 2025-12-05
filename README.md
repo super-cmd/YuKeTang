@@ -1,8 +1,8 @@
-# 雨课堂数据获取与解析工具
+# 雨课堂辅助工具
 
 ## 项目简介
 
-这是一个用于获取雨课堂平台课程数据并解析任务点的Python工具。该工具能够获取用户信息、课程列表、学习日志，并对任务点进行分类和统计。
+这是一个功能强大的雨课堂平台辅助工具，不仅能够获取用户信息、课程列表和学习日志，还能够自动处理各种任务点，如观看视频课程、阅读图文资料等，帮助用户高效完成在线学习任务。
 
 ## 功能特点
 
@@ -10,10 +10,14 @@
 - ✅ 获取课程列表及教师信息
 - ✅ 获取指定课程的学习日志
 - ✅ 解析任务点并按类型分类（课件、公告、课堂等）
+- ✅ 自动观看视频课程（支持倍速播放）
+- ✅ 自动阅读图文资料
+- ✅ 自动处理课件任务
 - ✅ 任务数据可视化和统计
-- ✅ 支持保存任务数据到JSON文件
+- ✅ 进度跟踪和缓存，避免重复处理
 - ✅ 完整的日志记录系统
-- ✅ 命令行参数支持，便于集成和自动化
+- ✅ 灵活的配置选项，支持环境变量覆盖
+- ✅ Cookie文件选择功能，支持多账户
 
 ## 项目结构
 
@@ -22,11 +26,14 @@ YuKeTang/
 ├── main.py              # 主程序入口
 ├── README.md            # 项目文档
 ├── requirements.txt     # 项目依赖
+├── config.py            # 配置文件
 ├── .gitignore           # Git忽略文件
+├── cache/               # 缓存目录
 ├── api/                 # API模块
 │   ├── __init__.py
 │   ├── courses.py       # 课程相关API
-│   └── userinfo.py      # 用户信息API
+│   ├── userinfo.py      # 用户信息API
+│   └── WebSocket.py     # WebSocket连接处理
 ├── parser/              # 解析器模块
 │   ├── __init__.py
 │   └── task_parser.py   # 任务点解析器
@@ -35,7 +42,10 @@ YuKeTang/
     ├── helpers.py       # 辅助函数
     ├── headers.py       # HTTP请求头处理
     ├── logger.py        # 日志系统
-    └── time.py          # 时间处理工具
+    ├── time.py          # 时间处理工具
+    ├── cache.py         # 缓存管理
+    ├── request_helper.py # HTTP请求处理
+    └── select.py        # 选择处理工具
 ```
 
 ## 安装说明
@@ -59,42 +69,41 @@ pip install -r requirements.txt
 
 ### 基本使用
 
+1. 运行主程序：
+   ```bash
+   python main.py
+   ```
+
+2. 程序启动后，会提示选择 Cookie 文件
+
+3. 选择要处理的课程（可使用逗号分隔多个课程，或使用短横线表示范围）
+
+4. 程序会自动开始处理选中课程的任务
+
+### 配置选项
+
+项目支持通过 `config.py` 文件或环境变量进行配置：
+
+| 配置项 | 类型 | 默认值 | 环境变量 | 描述 |
+|--------|------|--------|----------|------|
+| APP_NAME | str | "YuKeTang App" | YUKETANG_APP_NAME | 应用程序名称 |
+| APP_VERSION | str | "1.0.0" | YUKETANG_APP_VERSION | 应用程序版本 |
+| API_BASE_URL | str | "https://www.yuketang.cn" | YUKETANG_API_BASE_URL | API 基础 URL |
+| API_TIMEOUT | int | 30 | YUKETANG_API_TIMEOUT | API 请求超时时间（秒） |
+| DEFAULT_LOG_LEVEL | str | "INFO" | YUKETANG_DEFAULT_LOG_LEVEL | 默认日志级别 |
+| DEFAULT_COURSE_INDEX | int | 7 | YUKETANG_DEFAULT_COURSE_INDEX | 默认选择的课程索引 |
+| AUTO_SAVE_TASKS | bool | False | YUKETANG_AUTO_SAVE_TASKS | 是否自动保存任务文件 |
+| HEARTBEAT_INTERVAL | float | 30.0 | YUKETANG_HEARTBEAT_INTERVAL | 心跳包发送间隔（秒） |
+| VIDEO_SPEED | float | 2.0 | YUKETANG_VIDEO_SPEED | 视频播放倍速 |
+
+示例：通过环境变量设置视频倍速：
 ```bash
-# 运行主程序，使用默认配置
-python main.py
+# Windows
+set YUKETANG_VIDEO_SPEED=3.0
 
-# 指定课程索引（从0开始）
-python main.py -c 5
-
-# 保存任务数据到文件
-python main.py -s
-
-# 指定输出文件路径
-python main.py -s -o my_tasks.json
+# Linux/Mac
+YUKETANG_VIDEO_SPEED=3.0 python main.py
 ```
-
-### 高级选项
-
-```bash
-# 设置日志级别为DEBUG
-python main.py --log-level DEBUG
-
-# 将日志保存到文件
-python main.py --log-file app.log
-
-# 综合使用多个选项
-python main.py -c 3 -s -o output/tasks.json --log-level INFO --log-file logs/app.log
-```
-
-## 命令行参数说明
-
-| 参数 | 简写 | 说明 | 默认值 |
-|------|------|------|--------|
-| `--course` | `-c` | 指定要查询的课程索引 | `7` |
-| `--save` | `-s` | 保存任务数据到文件 | `False` |
-| `--output` | `-o` | 任务数据输出文件路径 | `tasks.json` |
-| `--log-level` | - | 日志级别（DEBUG/INFO/WARNING/ERROR/CRITICAL） | `INFO` |
-| `--log-file` | - | 日志文件路径 | `None` |
 
 ## 模块说明
 
@@ -122,11 +131,15 @@ python main.py -c 3 -s -o output/tasks.json --log-level INFO --log-file logs/app
 
 ## 注意事项
 
-1. 使用前请确保已在系统中配置好Cookie信息（保存在cookie.json文件中）
-2. 默认情况下，程序将选择第8个课程（索引7）进行演示
-3. 如需选择其他课程，请使用`-c`参数指定课程索引
-4. 日志文件将自动创建在指定目录（如果不存在）
-5. 建议定期更新Cookie以确保API访问正常
+1. **Cookie准备**：使用前请确保已准备好有效的Cookie文件（从雨课堂网页版获取）
+2. **Cookie有效期**：Cookie有一定的有效期，过期后需要重新获取
+3. **课程选择**：默认情况下，程序将选择第8个课程（索引7），但会提示用户确认或选择其他课程
+4. **任务处理**：
+   - 视频任务会自动发送心跳包模拟观看
+   - 图文任务会自动标记为已读
+   - 作业和考试任务仅显示信息，需要手动完成
+5. **网络环境**：使用本工具需要稳定的网络连接
+6. **使用风险**：本工具仅用于学习和研究目的，使用本工具可能违反雨课堂的用户协议，请谨慎使用
 
 ## 开发指南
 
