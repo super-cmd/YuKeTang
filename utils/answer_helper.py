@@ -8,41 +8,6 @@
 from typing import List, Union
 
 
-def normalize_answer(answer: Union[str, List[str], None]) -> List[str]:
-    """
-    将各种 answer 格式统一为列表形式
-    """
-    if not answer:
-        return []
-
-    # 如果已经是列表，直接返回
-    if isinstance(answer, list):
-        return answer
-
-    answer = str(answer).strip()
-
-    # 特殊值判断
-    if answer in ["正确", "true"]:
-        return ["true"]
-    if answer in ["错误", "false"]:
-        return ["false"]
-
-    # 常用分隔符
-    for sep in [",", "#", "|"]:
-        if sep in answer:
-            parts = [x.strip() for x in answer.split(sep) if x.strip()]
-            # 如果分割后有多个部分，返回分割结果
-            if len(parts) > 1:
-                return parts
-
-    # 连续字母形式，比如 "ABCD"（必须是纯字母）
-    if answer.isalpha() and len(answer) > 1:
-        return list(answer)
-
-    # 单个字符或其他文本 - 返回整个字符串作为列表的一个元素
-    return [answer]
-
-
 def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[str]:
     """
     根据题型返回可直接提交的答案列表
@@ -66,6 +31,22 @@ def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[
         # 3. 单个答案
         else:
             answer_items = [answer_str]
+
+    # 判断题 (type=3) - 把这个放在最前面处理
+    if q_type == 3:
+        if not answer_items:
+            return []
+
+        answer_text = answer_items[0]
+
+        # 特殊处理判断题答案
+        if answer_text in ["正确", "对", "是", "true", "True", "TRUE"]:
+            return ["true"]
+        elif answer_text in ["错误", "错", "否", "false", "False", "FALSE"]:
+            return ["false"]
+        else:
+            # 如果都不是，返回原始答案
+            return [answer_text]
 
     # 单选题 (type=0)
     if q_type == 0:
@@ -117,19 +98,6 @@ def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[
                     break
 
         return submit_answers
-
-    # 判断题 (type=3)
-    elif q_type == 3:
-        if not answer_items:
-            return []
-
-        answer_text = answer_items[0]
-        if answer_text in ["正确", "true"]:
-            return ["true"]
-        elif answer_text in ["错误", "false"]:
-            return ["false"]
-        else:
-            return [answer_text]
 
     # 其他题型
     else:
