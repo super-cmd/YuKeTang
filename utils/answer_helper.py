@@ -46,7 +46,7 @@ def normalize_answer(answer: Union[str, List[str], None]) -> List[str]:
 def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[str]:
     """
     根据题型返回可直接提交的答案列表
-    针对单选题/多选题，返回选项字母
+    修复：支持单个字母答案直接返回
     """
     q_type = problem.get("type")
 
@@ -54,20 +54,30 @@ def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[
     if q_type in [0, 1]:
         options = problem.get("options", [])
 
-        # raw_answer 已经是答案文本（如"重视不够"）
-        answer_text = ""
+        # 处理 raw_answer
         if isinstance(raw_answer, list):
-            answer_text = raw_answer[0] if raw_answer else ""
+            if not raw_answer:
+                return []
+            answer_text = raw_answer[0]
         else:
             answer_text = str(raw_answer).strip()
 
-        # 在选项中查找匹配的key
+        # 1. 如果答案是单个字母（如 "D"），直接返回
+        if len(answer_text) == 1 and answer_text.isalpha():
+            return [answer_text]
+
+        # 2. 否则在选项中查找匹配
         for option in options:
             option_value = option.get("value", "")
             if answer_text == option_value:
                 return [option.get("key", "")]
 
-        # 如果没找到，返回空（或原始答案）
+        # 3. 如果都没找到，尝试模糊匹配
+        for option in options:
+            option_value = option.get("value", "")
+            if answer_text in option_value or option_value in answer_text:
+                return [option.get("key", "")]
+
         return []
 
     # 判断题
