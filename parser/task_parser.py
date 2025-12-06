@@ -5,13 +5,14 @@ import requests
 from api.userinfo import UserAPI
 from api.homework import HomeworkAPI
 from api.WebSocket import YKTWebSocket
-from utils.answer_helper import normalize_answer, get_submit_answer
+from utils.answer_helper import get_submit_answer
 from utils.helpers import inject_cookie_fields
 from utils.logger import get_logger
 from utils.time import to_datetime
 from api.courses import CourseAPI
 from config import config
 from utils.cache import LeafCache  # 通用缓存
+
 
 class TaskParser:
     """任务解析器类，用于解析和处理课程任务数据"""
@@ -29,11 +30,13 @@ class TaskParser:
 
     LEAF_TYPES = {
         0: "视频",
+        4: "讨论",
         3: "图文",
         6: "作业"
     }
 
-    def __init__(self, course_api: CourseAPI, user_api: UserAPI, homework_api: HomeworkAPI,log_file=None, cookie_file=None, cookie_str=None):
+    def __init__(self, course_api: CourseAPI, user_api: UserAPI, homework_api: HomeworkAPI, log_file=None,
+                 cookie_file=None, cookie_str=None):
         self.homework = homework_api
         self.course_api = course_api
         self.user_api = user_api
@@ -113,7 +116,12 @@ class TaskParser:
             self.logger.info(f"leaf {leaf_id} 已缓存完成，跳过")
             return
 
+        # 获取叶子节点信息
         leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
+        if not leaf_info:
+            self.logger.error(f"获取 leaf_info 失败: leaf_id={leaf_id}")
+            return
+
         score_deadline = leaf_info.get("class_end_time")
 
         if score_deadline:
@@ -126,8 +134,29 @@ class TaskParser:
         sku_id = leaf_info.get("sku_id")
         cid = leaf_info.get("course_id")
 
-        res = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
-        completed = res['completed']
+        # 检查必要参数
+        if not all([user_id, sku_id, cid]):
+            self.logger.error(f"缺少必要参数: leaf_id={leaf_id}, user_id={user_id}, sku_id={sku_id}, cid={cid}")
+            return
+
+        # 获取视频进度 - 添加重试机制
+        max_progress_retries = 3
+        progress_retry_count = 0
+        res = None
+
+        while progress_retry_count < max_progress_retries:
+            res = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+            if res is not None:
+                break
+            progress_retry_count += 1
+            self.logger.warning(f"获取视频进度失败，第 {progress_retry_count}/{max_progress_retries} 次重试…")
+            time.sleep(2)
+
+        if res is None:
+            self.logger.error(f"获取视频进度失败超过 {max_progress_retries} 次，跳过 leaf_id={leaf_id}")
+            return
+
+        completed = res.get('completed', 0)
         if completed == 1:
             self.logger.info(f"leaf {leaf_id} 已完成，跳过")
             self._mark_leaf_completed(leaf_id)
@@ -136,15 +165,25 @@ class TaskParser:
         self.logger.warning(f"leaf {leaf_id} 未完成，模拟观看中…")
         max_retry, retry = 5, 0
         video_length = None
+
+        # 获取视频长度 - 同样添加重试和空值检查
         while retry < max_retry:
             prog = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
-            video_length = prog.get("video_length") if prog else None
+            if not prog:
+                self.logger.warning(f"获取视频进度失败，第 {retry + 1}/{max_retry} 次重试…")
+                retry += 1
+                time.sleep(1)
+                continue
+
+            video_length = prog.get("video_length")
             if video_length == 0:
-                self.logger.warning(f"leaf {leaf_id} 视频失效或截")
+                self.logger.warning(f"leaf {leaf_id} 视频失效或已截止")
                 return
             if video_length:
                 break
-            self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id, duration=0, current_time=0)
+
+            self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id, duration=0,
+                                                 current_time=0)
             retry += 1
             self.logger.warning(f"获取视频长度失败，第 {retry}/{max_retry} 次重试…")
             time.sleep(1)
@@ -156,16 +195,46 @@ class TaskParser:
         HEARTBEAT_INTERVAL = config.HEARTBEAT_INTERVAL
         VIDEO_SPEED = config.VIDEO_SPEED
         video_frame, step = 0, HEARTBEAT_INTERVAL * VIDEO_SPEED * 0.8
+
+        # 观看视频过程
         while video_frame < video_length:
             video_frame = min(video_frame + step, video_length)
-            self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id,
-                                                 duration=video_length, current_time=video_frame)
-            self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
+            # 发送心跳前也可以添加重试
+            heartbeat_success = False
+            heartbeat_retries = 3
+            for i in range(heartbeat_retries):
+                try:
+                    self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id,
+                                                         duration=video_length, current_time=video_frame)
+                    heartbeat_success = True
+                    break
+                except Exception as e:
+                    if i < heartbeat_retries - 1:
+                        self.logger.warning(f"发送心跳失败，第 {i + 1}/{heartbeat_retries} 次重试: {e}")
+                        time.sleep(1)
+                    else:
+                        self.logger.error(f"发送心跳失败超过 {heartbeat_retries} 次: {e}")
+
+            if heartbeat_success:
+                self.logger.info(f"已观看 {video_frame}/{video_length} 秒（leaf_id={leaf_id}）")
             time.sleep(HEARTBEAT_INTERVAL)
 
-        final = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
-        self.logger.info(f"leaf {leaf_id} 完成状态：{final}")
-        self._mark_leaf_completed(leaf_id)
+        # 最终检查 - 添加重试
+        max_final_retries = 3
+        final = None
+        for i in range(max_final_retries):
+            final = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+            if final:
+                break
+            if i < max_final_retries - 1:
+                self.logger.warning(f"获取最终状态失败，第 {i + 1}/{max_final_retries} 次重试")
+                time.sleep(2)
+
+        if final:
+            self.logger.info(f"leaf {leaf_id} 完成状态：{final}")
+            self._mark_leaf_completed(leaf_id)
+        else:
+            self.logger.error(f"leaf {leaf_id} 最终状态获取失败，但已尝试完成")
 
     def _process_leaf(self, leaf_id, leaf_type, classroom_id, sku_id=None):
         """统一处理叶子节点，包括视频和图文"""
@@ -202,7 +271,7 @@ class TaskParser:
                 leaf_id = leaf.get("id")
                 leaf_type_name = self.get_leaf_type_name(leaf_type)
 
-                self.logger.info(f"{'│   ' * (len(current_titles)-1)}└─ {leaf_type_name}：{leaf_title} (id={leaf_id})")
+                self.logger.info(f"{'│   ' * (len(current_titles) - 1)}└─ {leaf_type_name}：{leaf_title} (id={leaf_id})")
                 self._process_leaf(leaf_id, leaf_type, classroom_id, sku_id)
 
                 leaf_tasks.append({
