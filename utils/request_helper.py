@@ -1,5 +1,6 @@
 # utils/request_helper.py
 import json
+import random
 import time
 import requests
 from .logger import get_logger
@@ -38,7 +39,7 @@ def make_request(
     if not timeout:
         timeout = config.API_TIMEOUT
     if request_delay is None:
-        request_delay = config.API_REQUEST_DELAY
+        request_delay = random.uniform(5.0, 10.0)
 
     full_url = url if url.startswith("http") else f"{config.API_BASE_URL}{url}"
     headers = random_headers(cookie)

@@ -4,6 +4,7 @@
 集中管理项目的所有配置参数，支持环境变量覆盖默认值
 """
 import os
+import random
 from typing import Dict, Any
 
 
@@ -21,7 +22,7 @@ class Config:
     API_TIMEOUT: int = 30
     API_RETRY_COUNT: int = 3
     API_RETRY_DELAY: float = 1.0
-    API_REQUEST_DELAY: float = 2.0
+    # API_REQUEST_DELAY: float =
 
     # ===== 文件配置 =====
     COOKIE_FILE_PATH: str = "cookie.json"

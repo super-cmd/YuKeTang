@@ -46,59 +46,94 @@ def normalize_answer(answer: Union[str, List[str], None]) -> List[str]:
 def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[str]:
     """
     根据题型返回可直接提交的答案列表
-    修复：支持单个字母答案直接返回
+    支持多种答案格式
     """
     q_type = problem.get("type")
+    options = problem.get("options", [])
 
-    # 单选题或多选题
-    if q_type in [0, 1]:
-        options = problem.get("options", [])
+    # 处理 raw_answer
+    if isinstance(raw_answer, list):
+        answer_items = raw_answer
+    else:
+        answer_str = str(raw_answer).strip()
 
-        # 处理 raw_answer
-        if isinstance(raw_answer, list):
-            if not raw_answer:
-                return []
-            answer_text = raw_answer[0]
+        # 1. 多选题：用逗号分割 "A,B,C,D" -> ["A","B","C","D"]
+        if "," in answer_str:
+            answer_items = [item.strip() for item in answer_str.split(",") if item.strip()]
+        # 2. 连续字母 "ABCD" -> ["A","B","C","D"]
+        elif answer_str.isalpha() and len(answer_str) > 1:
+            answer_items = list(answer_str)
+        # 3. 单个答案
         else:
-            answer_text = str(raw_answer).strip()
+            answer_items = [answer_str]
 
-        # 1. 如果答案是单个字母（如 "D"），直接返回
-        if len(answer_text) == 1 and answer_text.isalpha():
+    # 单选题 (type=0)
+    if q_type == 0:
+        if not answer_items:
+            return []
+
+        answer_text = answer_items[0]
+
+        # 情况1：已经是字母
+        if len(answer_text) == 1 and answer_text in ["A", "B", "C", "D", "E", "F"]:
             return [answer_text]
 
-        # 2. 否则在选项中查找匹配
+        # 情况2：匹配选项内容
         for option in options:
             option_value = option.get("value", "")
+            # 完全匹配
             if answer_text == option_value:
                 return [option.get("key", "")]
-
-        # 3. 如果都没找到，尝试模糊匹配
-        for option in options:
-            option_value = option.get("value", "")
-            if answer_text in option_value or option_value in answer_text:
+            # 去掉空格等符号后匹配（如 "HouseofCommons" 匹配 "House of Commons"）
+            clean_answer = answer_text.replace(" ", "").lower()
+            clean_option = option_value.replace(" ", "").lower()
+            if clean_answer == clean_option:
                 return [option.get("key", "")]
 
         return []
 
-    # 判断题
+    # 多选题 (type=1)
+    elif q_type == 1:
+        submit_answers = []
+
+        for answer_item in answer_items:
+            # 如果已经是字母
+            if len(answer_item) == 1 and answer_item in ["A", "B", "C", "D", "E", "F"]:
+                submit_answers.append(answer_item)
+                continue
+
+            # 查找匹配的选项
+            for option in options:
+                option_value = option.get("value", "")
+                # 完全匹配
+                if answer_item == option_value:
+                    submit_answers.append(option.get("key", ""))
+                    break
+                # 模糊匹配
+                clean_answer = answer_item.replace(" ", "").lower()
+                clean_option = option_value.replace(" ", "").lower()
+                if clean_answer == clean_option:
+                    submit_answers.append(option.get("key", ""))
+                    break
+
+        return submit_answers
+
+    # 判断题 (type=3)
     elif q_type == 3:
-        if isinstance(raw_answer, list):
-            return raw_answer[:1]
+        if not answer_items:
+            return []
+
+        answer_text = answer_items[0]
+        if answer_text in ["正确", "true"]:
+            return ["true"]
+        elif answer_text in ["错误", "false"]:
+            return ["false"]
         else:
-            answer = str(raw_answer).strip()
-            if answer in ["正确", "true"]:
-                return ["true"]
-            elif answer in ["错误", "false"]:
-                return ["false"]
-            else:
-                return [answer]
+            return [answer_text]
 
     # 其他题型
     else:
-        if isinstance(raw_answer, list):
-            return raw_answer
-        else:
-            return [str(raw_answer)]
+        return answer_items
 
 
 if __name__ == "__main__":
