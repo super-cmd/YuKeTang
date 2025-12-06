@@ -1,8 +1,11 @@
 import time
 
+import requests
+
 from api.userinfo import UserAPI
 from api.homework import HomeworkAPI
 from api.WebSocket import YKTWebSocket
+from utils.answer_helper import normalize_answer, get_submit_answer
 from utils.helpers import inject_cookie_fields
 from utils.logger import get_logger
 from utils.time import to_datetime
@@ -52,41 +55,55 @@ class TaskParser:
         """
         处理作业任务
         """
+        # 如果有缓存，且作业已完成，则直接跳过
         if self.leaf_cache and self.leaf_cache.is_completed(leaf_id):
             self.logger.info(f"作业 leaf {leaf_id} 已缓存完成，跳过")
             return
 
-        # 查询作业状态
-        # status = self.course_api.get_homework_status(leaf_id, classroom_id)
-        # if status.get("submitted"):
-        #     self.logger.info(f"作业 leaf {leaf_id} 已提交，跳过")
-        #     self._mark_leaf_completed(leaf_id)
-        #     return
-
+        # 获取 leaf 信息
         leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
-        self.logger.debug(f"叶子信息 leaf {leaf_id}：{leaf_info}")
         leaf_type_id = leaf_info.get("leaf_type_id")
 
-        # 获取作业详情
+        # 获取作业题目列表
         homework_info = self.homework.get_exercise_list(classroom_id, leaf_type_id)
-        questions = homework_info.get("questions", [])
-        self.logger.info(f"作业 leaf {leaf_type_id} 共 {len(questions)} 道题，开始自动提交...")
+        problems = homework_info.get("problems", [])
+        completed_map = homework_info.get("completed_map", {})  # 作业层级的完成状态字典
 
-        # for q in questions:
-        #     # 自动选择答案逻辑，可扩展：这里简单提交默认值或空
-        #     answer = q.get("default_answer") or ""
-        #     self.course_api.submit_homework_answer(
-        #         leaf_id, q["question_id"], answer, classroom_id
-        #     )
-        #     self.logger.info(f"题目 {q['question_id']} 提交答案: {answer}")
-        #
-        # # 提交作业
-        # self.course_api.submit_homework(leaf_id, classroom_id)
-        # self.logger.info(f"作业 leaf {leaf_id} 已提交完成")
-        #
-        # # 标记缓存
-        # self._mark_leaf_completed(leaf_id)
+        self.logger.info(f"作业 leaf {leaf_type_id} 共 {len(problems)} 道题，开始自动提交...")
 
+        for p in problems:
+            problem_id = p.get("problem_id")
+            is_completed = completed_map.get(problem_id, False)  # 从作业层级字典获取
+
+            self.logger.debug(f"problem_id={problem_id}, is_completed={is_completed}")
+
+            if is_completed:
+                self.logger.info(f"题目 {problem_id} 已完成，跳过")
+                continue  # 已完成题跳过
+
+            # 请求题库获取答案
+            try:
+                res = requests.post("https://frpclient04.xhyonline.com:9310/api/questions/search", json=p)
+                raw_answer = res.json().get("answer")
+            except Exception as e:
+                self.logger.error(f"题目 {problem_id} 获取题库答案失败: {str(e)}")
+                continue
+
+            self.logger.debug(f"题目 {problem_id} 获取答案: {raw_answer}")
+
+            # 格式化答案
+            submit = get_submit_answer(p, raw_answer)
+            self.logger.debug(f"题目 {p} 原始答案: {raw_answer}")
+            self.logger.debug(f"题目 {problem_id} 提交答案: {submit}")
+
+            # 提交题目答案
+            self.homework.problem_apply(classroom_id, problem_id, submit)
+            self.logger.info(f"题目 {problem_id} 提交成功: {submit}")
+
+        # 提交完成后标记缓存
+        if self.leaf_cache:
+            self._mark_leaf_completed(leaf_id)
+            self.logger.info(f"作业 leaf {leaf_id} 已全部提交，缓存完成")
 
     def _process_video(self, leaf_id, classroom_id):
         if not classroom_id:
@@ -98,7 +115,6 @@ class TaskParser:
 
         leaf_info = self.course_api.fetch_leaf_info(classroom_id, leaf_id)
         score_deadline = leaf_info.get("class_end_time")
-        leaf_type_id = leaf_info.get("content_info").get("leaf_type_id")
 
         if score_deadline:
             now_ms = int(time.time() * 1000)

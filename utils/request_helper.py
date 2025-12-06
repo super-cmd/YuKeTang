@@ -33,7 +33,7 @@ def make_request(
         request_delay: 请求前等待时间
 
     返回:
-        JSON 解析结果或 None
+        dict: JSON 解析结果
     """
     if not timeout:
         timeout = config.API_TIMEOUT
@@ -57,21 +57,20 @@ def make_request(
         else:
             raise ValueError(f"不支持的请求方法: {method}")
 
-        res.raise_for_status()
+        # 尝试解析内容，无论 HTTP 状态码
         text = smart_decompress(res.content)
+        try:
+            result = json.loads(text)
+        except json.JSONDecodeError:
+            result = text  # 返回原始内容
 
-        if res.headers.get("Content-Type", "").startswith("application/json"):
-            return res.json()
-        else:
-            return json.loads(text)
+        # 检查 HTTP 状态码，如果不是 2xx 打日志但仍返回内容
+        if not res.ok:
+            status_code = res.status_code
+            logger.warning(f"{endpoint} 返回非成功状态码 {status_code}, 内容: {result}")
 
-    except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code if e.response else "未知"
-        logger.error(f"{endpoint} 请求失败: HTTP错误 {status_code}")
-        return None
-    except json.JSONDecodeError:
-        logger.error(f"{endpoint} 返回的数据不是有效的 JSON 格式")
-        return None
-    except Exception as e:
+        return result
+
+    except requests.exceptions.RequestException as e:
         logger.error(f"{endpoint} 请求发生错误: {str(e)}")
         return None
