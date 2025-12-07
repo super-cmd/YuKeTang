@@ -117,7 +117,7 @@ class CourseAPI:
             "rate": info.get("rate"),
             "video_length": info.get("video_length"),
         }
-        logger.info(f"视频 {video_id} 进度获取成功：rate={result['rate']}, watch={result['watch_length']}s")
+        logger.info(f"视频 {video_id} 进度获取成功：rate={result['rate']}, watch={result['watch_length']}s, video_length={result['video_length']}s")
         return result
 
     def send_video_heartbeat(self, cid, classroom_id, video_id, user_id, skuid, duration, current_time):

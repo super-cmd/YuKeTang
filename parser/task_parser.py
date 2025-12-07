@@ -139,18 +139,43 @@ class TaskParser:
             self.logger.error(f"缺少必要参数: leaf_id={leaf_id}, user_id={user_id}, sku_id={sku_id}, cid={cid}")
             return
 
-        # 获取视频进度 - 添加重试机制
+        # 第一步：先发送初始心跳包激活视频学习状态
+        self.logger.info(f"发送初始心跳激活视频状态...")
+        try:
+            self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id,
+                                                 duration=0, current_time=0)
+            self.logger.info("初始心跳发送成功，等待服务端初始化...")
+            time.sleep(2)  # 等待服务端处理
+        except Exception as e:
+            self.logger.warning(f"初始心跳发送失败: {e}")
+            # 即使失败也继续尝试
+
+        # 第二步：获取视频进度 - 添加重试机制
         max_progress_retries = 3
         progress_retry_count = 0
         res = None
 
         while progress_retry_count < max_progress_retries:
+            # 如果是重试，再发送一次心跳
+            if progress_retry_count > 0:
+                try:
+                    self.logger.info(f"重试前再次发送心跳...")
+                    self.course_api.send_video_heartbeat(cid, classroom_id, leaf_id, user_id, sku_id,
+                                                         duration=0, current_time=0)
+                    time.sleep(1)
+                except Exception as e:
+                    self.logger.warning(f"重试心跳发送失败: {e}")
+
+            # 获取视频进度
             res = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
             if res is not None:
+                self.logger.info(f"成功获取视频进度: completed={res.get('completed', 0)}")
                 break
+
             progress_retry_count += 1
-            self.logger.warning(f"获取视频进度失败，第 {progress_retry_count}/{max_progress_retries} 次重试…")
-            time.sleep(2)
+            if progress_retry_count < max_progress_retries:
+                self.logger.warning(f"获取视频进度失败，第 {progress_retry_count}/{max_progress_retries} 次重试...")
+                time.sleep(2)
 
         if res is None:
             self.logger.error(f"获取视频进度失败超过 {max_progress_retries} 次，跳过 leaf_id={leaf_id}")
@@ -224,6 +249,9 @@ class TaskParser:
         final = None
         for i in range(max_final_retries):
             final = self.course_api.get_video_progress(classroom_id, user_id, cid, leaf_id)
+
+            self.logger.debug(f"final: {final}")
+
             if final:
                 break
             if i < max_final_retries - 1:

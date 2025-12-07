@@ -39,7 +39,7 @@ def make_request(
     if not timeout:
         timeout = config.API_TIMEOUT
     if request_delay is None:
-        request_delay = random.uniform(5.0, 10.0)
+        request_delay = random.uniform(1.0, 2.0)
 
     full_url = url if url.startswith("http") else f"{config.API_BASE_URL}{url}"
     headers = random_headers(cookie)
