@@ -1,4 +1,4 @@
-# font_decryptor.py
+# utils/font_decryptor.py
 import requests
 from io import BytesIO
 from fontTools.ttLib import TTFont
@@ -6,7 +6,6 @@ import json
 import hashlib
 import re
 from bs4 import BeautifulSoup
-
 
 class FontDecryptor:
     """
@@ -22,6 +21,7 @@ class FontDecryptor:
         return hashlib.sha1(command_str.encode()).hexdigest()
 
     def decrypt_font(self, font_url, mapping_file="mapping_file.json"):
+        """下载字体并生成映射"""
         res = requests.get(font_url, headers=self.headers)
         font_data = BytesIO(res.content)
         obf_font = TTFont(font_data)
@@ -35,7 +35,6 @@ class FontDecryptor:
             original_glyph_to_uni = json.load(f)
 
         obf_to_orig = {}
-
         for glyph_name in obf_font.getGlyphOrder():
             unicodes = glyph_unicodes.get(glyph_name, [])
             if not unicodes:
@@ -61,41 +60,28 @@ class FontDecryptor:
 
         return obf_to_orig
 
-    def decrypt_text(self, text, font_url):
-        mapping = self.decrypt_font(font_url)
+    def decrypt_text(self, text, font_url=None, mapping=None):
+        if mapping is None:
+            mapping = self.decrypt_font(font_url) if font_url else {}
         return "".join(chr(mapping.get(ord(c), ord(c))) for c in text)
 
-    def decrypt_html(self, html_text, font_url):
+    def decrypt_html(self, html_text, font_url=None, mapping=None):
         """
-        直接解析 HTML 中的 <span class="xuetangx-com-encrypted-font">...</span>
-        并返回纯文本
+        解析 HTML 中加密字体 <span class="xuetangx-com-encrypted-font">...</span>
+        如果提供 mapping，则直接使用，不再下载字体
         """
-        mapping = self.decrypt_font(font_url)
+        if mapping is None:
+            mapping = self.decrypt_font(font_url) if font_url else {}
 
         def replace_span(match):
             enc_text = match.group(1)
             return "".join(chr(mapping.get(ord(c), ord(c))) for c in enc_text)
 
-        # 替换所有加密 span
         decrypted_html = re.sub(
             r'<span class="xuetangx-com-encrypted-font">(.*?)</span>',
             replace_span,
             html_text
         )
 
-        # 使用 BeautifulSoup 去掉剩余 HTML 标签
         soup = BeautifulSoup(decrypted_html, "html.parser")
         return soup.get_text(separator=" ", strip=True)
-
-
-if __name__ == "__main__":
-    font_url = "https://fe-static-yuketang.yuketang.cn/fe_font/product/exam_font_71fcafe41b694a9985b6d3b8717e8bce.ttf"
-    obf_text = "坏是剂头径费湿干促什标职验"
-    html_text = '<p><span class="xuetangx-com-encrypted-font">坏是剂头径费湿干促什标职验</span>。</p><p></p><!--!doctype-->'
-
-    decryptor = FontDecryptor()
-    print("=== 解密纯文本 ===")
-    print(decryptor.decrypt_text(obf_text, font_url))
-
-    print("\n=== 解密 HTML ===")
-    print(decryptor.decrypt_html(html_text, font_url))
