@@ -41,7 +41,7 @@ class HomeworkAPI:
 
         problems = []
         problem_ids = []
-        completed_map = {}
+        submit_time_map = {}
 
         for p in homework_data.get("problems", []):
             content = p.get("content", {})
@@ -50,7 +50,8 @@ class HomeworkAPI:
             problem_id = p.get("ProblemID") or p.get("problem_id")
             problem_ids.append(problem_id)
 
-            completed_map[problem_id] = user_info.get("my_count", 0) > 0
+            # 获取提交时间
+            submit_time_map[problem_id] = user_info.get("submit_time")
 
             body_html = content.get("Body", "")
             value = decryptor.decrypt_html(body_html, mapping=font_mapping) if font_mapping else body_html
@@ -85,7 +86,7 @@ class HomeworkAPI:
             "font_url": font_url,
             "problems": problems,
             "problem_ids": problem_ids,
-            "completed_map": completed_map
+            "submit_time_map": submit_time_map
         }
 
     def problem_apply(self, classroom_id, problem_id, answer):
@@ -113,11 +114,21 @@ class HomeworkAPI:
         if csrftoken:
             extra_headers["X-Csrftoken"] = csrftoken
 
-        payload = {
-            "classroom_id": classroom_id,
-            "problem_id": problem_id,
-            "answer": answer,
-        }
+        # 根据答案判断体型
+        if isinstance(answer, dict):
+            # 说明是填空题/简答题
+            payload = {
+                "classroom_id": classroom_id,
+                "problem_id": problem_id,
+                "answers": answer  # 注意这里是 answers
+            }
+        else:
+            # 单选、多选、判断题
+            payload = {
+                "classroom_id": classroom_id,
+                "problem_id": problem_id,
+                "answer": answer  # 注意这里是 answer
+            }
 
         res = make_request(
             url=url,
