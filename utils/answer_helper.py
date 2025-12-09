@@ -1,126 +1,99 @@
-# utils/answer_helper.py
-"""
-答案处理工具
-提供统一的 answer 格式化方法，将各种形式的答案转换为列表，
-并根据题型返回可直接提交的答案（选择题返回选项字母，判断题返回 ["true"/"false"]）
-"""
-
 from typing import List, Union
 
 
 def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> List[str]:
     """
     根据题型返回可直接提交的答案列表
-    支持多种答案格式
     """
-    q_type = problem.get("type")
+
+    # 强制转换为 int —— ★ 最重要修复点 ★
+    try:
+        q_type = int(problem.get("type"))
+    except:
+        q_type = problem.get("type")
+
     options = problem.get("options", [])
 
-    # 处理 raw_answer
+    # 处理 raw_answer 标准化为列表
     if isinstance(raw_answer, list):
         answer_items = raw_answer
     else:
-        answer_str = str(raw_answer).strip()
+        answer_items = [str(raw_answer).strip()]
 
-        # 1. 多选题：用逗号分割 "A,B,C,D" -> ["A","B","C","D"]
-        if "," in answer_str:
-            answer_items = [item.strip() for item in answer_str.split(",") if item.strip()]
-        # 2. 连续字母 "ABCD" -> ["A","B","C","D"]
-        elif answer_str.isalpha() and len(answer_str) > 1:
-            answer_items = list(answer_str)
-        # 3. 单个答案
-        else:
-            answer_items = [answer_str]
+    answer_text = answer_items[0]
 
-    # 判断题 (type=3) - 把这个放在最前面处理
+    # 判断题 (type = 3)
     if q_type == 3:
-        if not answer_items:
-            return []
 
-        answer_text = answer_items[0]
-
-        # 特殊处理判断题答案
+        # 常规匹配
         if answer_text in ["正确", "对", "是", "true", "True", "TRUE"]:
             return ["true"]
-        elif answer_text in ["错误", "错", "否", "false", "False", "FALSE"]:
+
+        if answer_text in ["错误", "错", "否", "false", "False", "FALSE"]:
             return ["false"]
-        else:
-            # 如果都不是，返回原始答案
-            return [answer_text]
 
-    # 单选题 (type=0)
+        # 模糊匹配 options
+        for opt in options:
+            clean_in = answer_text.replace(" ", "").lower()
+            clean_opt = opt["value"].replace(" ", "").lower()
+
+            if clean_in in clean_opt:
+                return [opt["key"]]
+
+        # fallback：返回原文
+        return [answer_text]
+
+    # 单选题 (type = 0)
     if q_type == 0:
-        if not answer_items:
-            return []
 
-        answer_text = answer_items[0]
+        # 字母项直接返回
+        if len(answer_text) == 1 and answer_text.upper() in "ABCDEF":
+            return [answer_text.upper()]
 
-        # 情况1：已经是字母
-        if len(answer_text) == 1 and answer_text in ["A", "B", "C", "D", "E", "F"]:
-            return [answer_text]
+        # 匹配选项内容
+        for opt in options:
+            ov = opt.get("value", "")
 
-        # 情况2：匹配选项内容
-        for option in options:
-            option_value = option.get("value", "")
-            # 完全匹配
-            if answer_text == option_value:
-                return [option.get("key", "")]
-            # 去掉空格等符号后匹配（如 "HouseofCommons" 匹配 "House of Commons"）
-            clean_answer = answer_text.replace(" ", "").lower()
-            clean_option = option_value.replace(" ", "").lower()
-            if clean_answer == clean_option:
-                return [option.get("key", "")]
+            if answer_text == ov:
+                return [opt.get("key", "")]
+
+            # 模糊匹配
+            if answer_text.replace(" ", "").lower() == ov.replace(" ", "").lower():
+                return [opt.get("key", "")]
 
         return []
 
-    # 多选题 (type=1)
-    elif q_type == 1:
+    # 多选题 (type = 1)
+    if q_type == 1:
+        # 支持： "A,B,C" / "ABC" / ["A","B"]
+        if "," in answer_text:
+            answer_items = [x.strip() for x in answer_text.split(",") if x.strip()]
+
+        elif answer_text.isalpha() and len(answer_text) > 1:
+            answer_items = list(answer_text)
+
         submit_answers = []
 
-        for answer_item in answer_items:
-            # 如果已经是字母
-            if len(answer_item) == 1 and answer_item in ["A", "B", "C", "D", "E", "F"]:
-                submit_answers.append(answer_item)
+        for item in answer_items:
+            # A/B/C 字母
+            if len(item) == 1 and item.upper() in "ABCDEF":
+                submit_answers.append(item.upper())
                 continue
 
-            # 查找匹配的选项
-            for option in options:
-                option_value = option.get("value", "")
-                # 完全匹配
-                if answer_item == option_value:
-                    submit_answers.append(option.get("key", ""))
+            # 文本匹配 options
+            for opt in options:
+                ov = opt.get("value", "")
+
+                if item == ov:
+                    submit_answers.append(opt.get("key", ""))
                     break
+
                 # 模糊匹配
-                clean_answer = answer_item.replace(" ", "").lower()
-                clean_option = option_value.replace(" ", "").lower()
-                if clean_answer == clean_option:
-                    submit_answers.append(option.get("key", ""))
+                if item.replace(" ", "").lower() == ov.replace(" ", "").lower():
+                    submit_answers.append(opt.get("key", ""))
                     break
 
         return submit_answers
 
-    # 其他题型
-    else:
-        return answer_items
-
-
-if __name__ == "__main__":
-    # 测试示例
-    test_problems = [
-        {"type": 0, "options": {"A": "苹果", "B": "香蕉", "C": "橙子"}},
-        {"type": 1, "options": {"A": "红色", "B": "绿色", "C": "蓝色"}},
-        {"type": 3},
-        {"type": 4},
-    ]
-
-    test_answers = [
-        "苹果",          # 单选题
-        "红色#蓝色",     # 多选题
-        "正确",          # 判断题
-        "这是答案"       # 简答题
-    ]
-
-    for p, a in zip(test_problems, test_answers):
-        print(f"题目: {p}")
-        print(f"原答案: {a}")
-        print(f"提交答案: {get_submit_answer(p, a)}\n")
+    # 填空题 / 简答题 / 其他
+    return answer_items
