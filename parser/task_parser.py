@@ -70,18 +70,19 @@ class TaskParser:
         # 获取作业题目列表
         homework_info = self.homework.get_exercise_list(classroom_id, leaf_type_id)
         problems = homework_info.get("problems", [])
-        completed_map = homework_info.get("completed_map", {})  # 作业层级的完成状态字典
+        submit_time_map = homework_info.get("submit_time_map", {})  # 作业层级的完成状态字典
 
         self.logger.info(f"作业 leaf {leaf_type_id} 共 {len(problems)} 道题，开始自动提交...")
 
         for p in problems:
             problem_id = p.get("problem_id")
-            is_completed = completed_map.get(problem_id, False)  # 从作业层级字典获取
+            submit_time = submit_time_map.get(problem_id, False)  # 从作业层级字典获取
+            is_completed = bool(submit_time)
 
             self.logger.debug(f"problem_id={problem_id}, is_completed={is_completed}")
 
             if is_completed:
-                self.logger.info(f"题目 {problem_id} 已完成，跳过")
+                self.logger.info(f"题目 {problem_id} 已完成")
                 continue  # 已完成题跳过
 
             # 请求题库获取答案
