@@ -54,7 +54,7 @@ class TaskParser:
         if self.leaf_cache:
             self.leaf_cache.mark_completed(leaf_id)
 
-    def _process_homework(self, leaf_id, classroom_id, sku_id=None):
+    def _process_homework(self, leaf_id, classroom_id):
         """
         处理作业任务
         """
@@ -278,7 +278,7 @@ class TaskParser:
                 self.course_api.user_article_finish(leaf_id, classroom_id, sku_id)
             self._mark_leaf_completed(leaf_id)
         elif leaf_type == 6:  # 作业
-            self._process_homework(leaf_id, classroom_id, sku_id)
+            self._process_homework(leaf_id, classroom_id)
         else:
             self.logger.warning(f"未知 leaf_type {leaf_type}，leaf_id={leaf_id}")
 
@@ -359,6 +359,11 @@ class TaskParser:
             if task_type in [16, 17] and leaf_id:
                 # 主目录视频或图文处理
                 self._process_leaf(leaf_id, 0 if task_type == 17 else 3, classroom_id, sku_id)
+
+            if task_type == 19 and leaf_id:
+                # 主目录作业处理
+                self.logger.info(f"检测到主目录作业 leaf_id={leaf_id}，开始处理作业")
+                self._process_homework(leaf_id, classroom_id)
 
             if task_type == 2 and courseware_id:
                 # 先检查缓存
