@@ -158,7 +158,7 @@ class YuKeTangApp:
             return False
 
         self.selected_course = self.course_list[course_index]
-        course_name = self.selected_course.get('course_name', self.selected_course.get('name', '未知课程'))
+        course_name = self.selected_course.get('course', {}).get('name', '未知课程')
         self.logger.data(f"已选择: {course_name}")
         return True
 
