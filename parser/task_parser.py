@@ -85,9 +85,13 @@ class TaskParser:
                 self.logger.info(f"题目 {problem_id} 已完成")
                 continue  # 已完成题跳过
 
+            headers = {
+                "Authorization": "3d749979-90d1-4751-a10a-8c4e755aed1a"
+            }
+
             # 请求题库获取答案
             try:
-                res = requests.post("https://frpclient04.xhyonline.com:9310/api/questions/search", json=p)
+                res = requests.post("https://frpclient04.xhyonline.com:9310/api/questions/search", json=p, headers=headers)
                 raw_answer = res.json().get("answer")
             except Exception as e:
                 self.logger.error(f"题目 {problem_id} 获取题库答案失败: {str(e)}")
