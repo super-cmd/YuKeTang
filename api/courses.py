@@ -5,6 +5,7 @@ from utils import to_datetime
 from utils.logger import get_logger
 from utils.headers import random_headers
 from utils.request_helper import make_request
+from utils.helpers import extract_csrf_token
 
 logger = get_logger(__name__)
 
@@ -173,12 +174,18 @@ class CourseAPI:
     def user_article_finish(self, leaf_id, classroom_id, sid):
         url = f"/mooc-api/v1/lms/learn/user_article_finish/{leaf_id}/?cid={classroom_id}&sid={sid}"
         extra_headers = {"classroom-id": str(classroom_id), "xtbz": "ykt"}
+        
+        # 添加 CSRF token
+        csrf_token = extract_csrf_token(self.cookie)
+        if csrf_token:
+            extra_headers["X-CSRFToken"] = csrf_token
+        
         res = make_request(
             url,
             cookie=self.cookie,
             endpoint="图文标记完成",
             extra_headers=extra_headers,
-            method="POST"
+            method="GET"
         )
         return res.get("success", False) if res else False
 

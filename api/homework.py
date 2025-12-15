@@ -3,6 +3,7 @@ import re
 from utils.font_decryptor import FontDecryptor
 from utils.logger import get_logger
 from utils.request_helper import make_request
+from utils.helpers import extract_csrf_token
 
 logger = get_logger(__name__)
 
@@ -98,11 +99,7 @@ class HomeworkAPI:
         url = "/mooc-api/v1/lms/exercise/problem_apply/"
 
         # 从 cookie 中提取 csrftoken
-        csrftoken = None
-        if self.cookie:
-            match = re.search(r'csrftoken=([a-zA-Z0-9]+)', self.cookie)
-            if match:
-                csrftoken = match.group(1)
+        csrftoken = extract_csrf_token(self.cookie)
 
         extra_headers = {
             "classroom-id": str(classroom_id),
@@ -112,7 +109,7 @@ class HomeworkAPI:
 
         # 如果有 csrftoken，添加到请求头
         if csrftoken:
-            extra_headers["X-Csrftoken"] = csrftoken
+            extra_headers["X-CSRFToken"] = csrftoken
 
         # 根据答案判断体型
         if isinstance(answer, dict):

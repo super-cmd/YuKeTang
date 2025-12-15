@@ -164,6 +164,27 @@ def choose_cookie_with_username(cookie_dir: str = COOKIE_DIR) -> str:
         return choose_cookie_with_username(cookie_dir)
 
 
+def extract_csrf_token(cookie_str: str) -> str:
+    """
+    从 cookie 字符串中提取 csrftoken
+    
+    Args:
+        cookie_str: Cookie 字符串
+        
+    Returns:
+        csrftoken 的值，如果找不到则返回空字符串
+    """
+    # 拆分为 dict
+    cookie_dict = {}
+    for part in cookie_str.split(";"):
+        part = part.strip()
+        if "=" in part:
+            k, v = part.split("=", 1)
+            cookie_dict[k] = v
+    
+    return cookie_dict.get("csrftoken", "")
+
+
 def inject_cookie_fields(cookie_str: str, **fields) -> str:
     """
     通用 Cookie 注入器：支持注入任意键值对，自动覆盖旧字段。
