@@ -1,11 +1,9 @@
 import time
 
-import requests
-
 from api.userinfo import UserAPI
 from api.homework import HomeworkAPI
 from api.WebSocket import YKTWebSocket
-from utils.answer_helper import get_submit_answer
+from utils.question_bank import get_submit_answer, query_question_bank, prepare_question_data
 from utils.helpers import inject_cookie_fields
 from utils.logger import get_logger
 from utils.time import to_datetime
@@ -85,17 +83,11 @@ class TaskParser:
                 self.logger.info(f"题目 {problem_id} 已完成")
                 continue  # 已完成题跳过
 
-            headers = {
-                "Authorization": "3d749979-90d1-4751-a10a-8c4e755aed1a"
-            }
-
+            # 构造发送给题库的数据
+            question_data = prepare_question_data(p)
+            
             # 请求题库获取答案
-            try:
-                res = requests.post("https://frpclient04.xhyonline.com:9310/api/questions/search", json=p, headers=headers)
-                raw_answer = res.json().get("answer")
-            except Exception as e:
-                self.logger.error(f"题目 {problem_id} 获取题库答案失败: {str(e)}")
-                continue
+            raw_answer = query_question_bank(question_data)
 
             self.logger.debug(f"题目 {problem_id} 获取答案: {raw_answer}")
 
