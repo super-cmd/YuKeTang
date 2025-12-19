@@ -45,6 +45,9 @@ class Config:
     # 播放倍速（1 = 正常速度, 2 = 两倍速）
     VIDEO_SPEED: float = 2.0
 
+    # ===== 题库配置 =====
+    QUESTION_BANK_TOKEN: str = "3d749979-90d1-4751-a10a-8c4e755aed1a"
+
 
     # ===== 读取与覆盖机制 =====
     @classmethod

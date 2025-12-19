@@ -3,6 +3,7 @@ from typing import List, Union, Dict, Any, Optional
 import re
 
 from utils.logger import get_logger
+from config import config
 
 logger = get_logger(__name__)
 
@@ -95,17 +96,21 @@ def get_submit_answer(problem: dict, raw_answer: Union[str, List[str]]) -> Union
     return answer_items
 
 
-def query_question_bank(question_data: Dict[str, Any], authorization: str = "3d749979-90d1-4751-a10a-8c4e755aed1a") -> Optional[str]:
+def query_question_bank(question_data: Dict[str, Any], authorization: str = None) -> Optional[str]:
     """
     向题库后端查询题目答案
     
     Args:
         question_data: 包含题目信息的字典，应包含value和type字段，可选options字段
-        authorization: 题库接口认证token
+        authorization: 题库接口认证token，默认使用config.py中的配置
         
     Returns:
         题目答案，如果查询失败则返回None
     """
+    # 如果没有提供authorization参数，则使用config中的默认值
+    if authorization is None:
+        authorization = config.QUESTION_BANK_TOKEN
+    
     headers = {
         "Authorization": authorization
     }
