@@ -73,9 +73,12 @@ python main.py
 ## 使用方法
 
 1. **准备Cookie**：从雨课堂网站获取有效的Cookie并保存到cookie.json文件
-2. **运行程序**：执行`python main.py`启动程序
-3. **选择课程**：根据提示选择需要处理的课程（支持选择多个课程）
-4. **自动处理**：程序会自动处理所选课程的各种学习任务
+2. **配置题库Token**（可选）：
+   - 访问题库官网获取Token：https://frpclient04.xhyonline.com:9311
+   - 在`config.py`中配置`QUESTION_BANK_TOKEN`，或通过环境变量`YUKETANG_QUESTION_BANK_TOKEN`设置
+3. **运行程序**：执行`python main.py`启动程序
+4. **选择课程**：根据提示选择需要处理的课程（支持选择多个课程）
+5. **自动处理**：程序会自动处理所选课程的各种学习任务
 
 ## 配置说明
 
@@ -86,7 +89,7 @@ python main.py
 | API_BASE_URL | https://www.yuketang.cn | 雨课堂API基础URL |
 | VIDEO_SPEED | 2.0 | 视频播放倍速 |
 | HEARTBEAT_INTERVAL | 30.0 | 心跳包发送间隔（秒） |
-| QUESTION_BANK_TOKEN | 3d749979-90d1-4751-a10a-8c4e755aed1a | 题库接口认证Token |
+| QUESTION_BANK_TOKEN | 无（需用户自行购买获取） | 题库接口认证Token |
 
 ## 注意事项
 
