@@ -28,6 +28,7 @@
 YuKeTang/
 ├── main.py              # 主程序入口
 ├── config.py            # 配置文件
+├── config.yaml          # YAML配置文件（可选）
 ├── api/                 # API接口模块
 │   ├── courses.py       # 课程相关API
 │   ├── userinfo.py      # 用户信息API
@@ -73,23 +74,69 @@ python main.py
 ## 使用方法
 
 1. **准备Cookie**：从雨课堂网站获取有效的Cookie并保存到cookie.json文件
-2. **配置题库Token**（可选）：
+2. **配置参数**（可选）：
+   - 方法一：修改config.yaml文件
+   - 方法二：设置环境变量（前缀为YUKETANG_）
+   - 方法三：直接修改config.py文件
+3. **配置题库Token**（可选）：
    - 访问题库官网获取Token：https://frpclient04.xhyonline.com:9311
-   - 在`config.py`中配置`QUESTION_BANK_TOKEN`，或通过环境变量`YUKETANG_QUESTION_BANK_TOKEN`设置
-3. **运行程序**：执行`python main.py`启动程序
-4. **选择课程**：根据提示选择需要处理的课程（支持选择多个课程）
-5. **自动处理**：程序会自动处理所选课程的各种学习任务
+   - 在config.yaml中配置QUESTION_BANK_TOKEN，或通过环境变量YUKETANG_QUESTION_BANK_TOKEN设置
+4. **运行程序**：执行`python main.py`启动程序
+5. **选择课程**：根据提示选择需要处理的课程（支持选择多个课程）
+6. **自动处理**：程序会自动处理所选课程的各种学习任务
 
 ## 配置说明
 
-项目支持通过`config.py`文件或环境变量进行配置：
+项目支持多种配置方式，优先级从高到低依次为：
+1. 环境变量
+2. YAML配置文件(config.yaml)
+3. Python配置文件(config.py)
+
+### 可配置参数
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
+| APP_NAME | YuKeTang App | 应用程序名称 |
+| APP_VERSION | 1.0.0 | 应用程序版本 |
 | API_BASE_URL | https://www.yuketang.cn | 雨课堂API基础URL |
-| VIDEO_SPEED | 2.0 | 视频播放倍速 |
+| API_TIMEOUT | 30 | API请求超时时间（秒） |
+| API_RETRY_COUNT | 3 | API重试次数 |
+| API_RETRY_DELAY | 1.0 | API重试延迟（秒） |
+| COOKIE_FILE_PATH | cookie.json | Cookie文件路径 |
+| DEFAULT_LOG_DIR | logs | 默认日志目录 |
+| DEFAULT_LOG_FILE | logs/app.log | 默认日志文件路径 |
+| DEFAULT_LOG_LEVEL | INFO | 默认日志级别 |
+| DEFAULT_COURSE_INDEX | 7 | 默认选择的课程索引 |
+| AUTO_SAVE_TASKS | false | 是否自动保存任务文件 |
 | HEARTBEAT_INTERVAL | 30.0 | 心跳包发送间隔（秒） |
+| VIDEO_SPEED | 2.0 | 视频播放倍速 |
 | QUESTION_BANK_TOKEN | 无（需用户自行购买获取） | 题库接口认证Token |
+
+### 配置示例
+
+#### YAML配置文件(config.yaml)
+```yaml
+# 刷课配置
+VIDEO_SPEED: 3.0
+HEARTBEAT_INTERVAL: 20.0
+
+# 日志配置
+DEFAULT_LOG_LEVEL: DEBUG
+
+# 题库配置 (需要自行购买获取)
+# QUESTION_BANK_TOKEN: "your_token_here"
+```
+
+#### 环境变量配置
+```bash
+# Windows
+set YUKETANG_VIDEO_SPEED=3.0
+set YUKETANG_HEARTBEAT_INTERVAL=20.0
+
+# Linux/Mac
+export YUKETANG_VIDEO_SPEED=3.0
+export YUKETANG_HEARTBEAT_INTERVAL=20.0
+```
 
 ## 注意事项
 

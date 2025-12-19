@@ -4,6 +4,7 @@
 集中管理项目的所有配置参数，支持环境变量覆盖默认值
 """
 import os
+import yaml
 import random
 from typing import Dict, Any
 
@@ -59,6 +60,39 @@ class Config:
         return config_dict
 
     @classmethod
+    def load_from_yaml(cls, yaml_file: str = "config.yaml") -> None:
+        """
+        从YAML配置文件加载配置，覆盖默认值
+        
+        Args:
+            yaml_file: YAML配置文件路径
+        """
+        if not os.path.exists(yaml_file):
+            return
+            
+        try:
+            with open(yaml_file, 'r', encoding='utf-8') as f:
+                yaml_config = yaml.safe_load(f)
+                
+            if not isinstance(yaml_config, dict):
+                return
+                
+            for key, value in yaml_config.items():
+                if hasattr(cls, key):
+                    original_value = getattr(cls, key)
+                    # 类型转换
+                    if isinstance(original_value, bool) and isinstance(value, bool):
+                        setattr(cls, key, value)
+                    elif isinstance(original_value, int) and isinstance(value, int):
+                        setattr(cls, key, value)
+                    elif isinstance(original_value, float) and isinstance(value, (float, int)):
+                        setattr(cls, key, float(value))
+                    elif isinstance(original_value, str) and isinstance(value, str):
+                        setattr(cls, key, value)
+        except Exception:
+            pass
+
+    @classmethod
     def load_from_env(cls) -> None:
         """
         从环境变量加载配置，覆盖默认值
@@ -94,7 +128,8 @@ class Config:
 
 # 全局配置对象
 config = Config()
-config.load_from_env()
+config.load_from_yaml()  # 优先加载YAML配置
+config.load_from_env()   # 然后加载环境变量配置（优先级最高）
 config.ensure_directories()
 
 __all__ = ['Config', 'config']
