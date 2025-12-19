@@ -1,0 +1,32 @@
+# YuKeTang 配置文件
+
+# 基础配置
+APP_NAME: "YuKeTang App"
+APP_VERSION: "1.0.0"
+
+# API配置
+API_BASE_URL: "https://www.yuketang.cn"
+API_TIMEOUT: 30
+API_RETRY_COUNT: 3
+API_RETRY_DELAY: 1.0
+
+# 文件配置
+COOKIE_FILE_PATH: "cookie.json"
+DEFAULT_LOG_DIR: "logs"
+DEFAULT_LOG_FILE: "logs/app.log"
+
+# 日志配置
+DEFAULT_LOG_LEVEL: "INFO"
+LOG_FORMAT: "%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
+LOG_DATE_FORMAT: "%Y-%m-%d %H:%M:%S"
+
+# 任务配置
+DEFAULT_COURSE_INDEX: 7
+AUTO_SAVE_TASKS: false
+
+# 刷课配置
+HEARTBEAT_INTERVAL: 30.0
+VIDEO_SPEED: 2.0
+
+# 题库配置 (需要自行购买获取)
+# QUESTION_BANK_TOKEN: ""
